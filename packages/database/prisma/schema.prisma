@@ -1,0 +1,1354 @@
+// AI Content OS — Prisma Schema
+// Database: PostgreSQL
+// ORM: Prisma
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================================================
+// ENUMS
+// ==================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  EDITOR
+  MEMBER
+  VIEWER
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE 
+  PAST_DUE
+  CANCELED
+  TRIALING
+  UNPAID
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  ARCHIVED
+}
+
+enum VideoStatus {
+  DRAFT
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AudioStatus {
+  DRAFT
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ImageStatus {
+  DRAFT
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  YOUTUBE
+  TIKTOK
+  TELEGRAM
+  WHATSAPP
+  LINKEDIN
+  TWITTER
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  OTHER
+}
+
+enum AITaskType {
+  TEXT_GENERATION
+  IMAGE_GENERATION
+  VIDEO_GENERATION
+  VOICE_GENERATION
+  AVATAR_GENERATION
+  TRANSCRIPTION
+  TRANSLATION
+  EMBEDDING
+  ANALYSIS
+  CAPTIONING
+}
+
+enum AIProviderStatus {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
+}
+
+enum AIRequestStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  TIMEOUT
+  CANCELLED
+}
+
+enum CreditTransactionType {
+  PURCHASE
+  CONSUMPTION
+  REFUND
+  BONUS
+  EXPIRATION
+  ADJUSTMENT
+}
+
+enum JobStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  FAILED
+  DELAYED
+  PAUSED
+}
+
+enum NotificationType {
+  VIDEO_COMPLETED
+  VIDEO_FAILED
+  POST_PUBLISHED
+  POST_FAILED
+  CREDITS_LOW
+  SUBSCRIPTION_UPDATED
+  ACCOUNT_EXPIRED
+  SCHEDULED_APPROACHING
+  SYSTEM_ALERT
+  TEAM_INVITE
+  GENERAL
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGOUT
+  USER_REGISTER
+  USER_DELETE
+  ORG_CREATE
+  ORG_UPDATE
+  ORG_DELETE
+  MEMBER_INVITE
+  MEMBER_REMOVE
+  PROJECT_CREATE
+  PROJECT_DELETE
+  AI_GENERATION
+  SOCIAL_CONNECT
+  SOCIAL_DISCONNECT
+  POST_PUBLISH
+  POST_SCHEDULE
+  SUBSCRIPTION_CHANGE
+  CREDIT_PURCHASE
+  ADMIN_ACTION
+}
+
+enum ContentType {
+  SHORT_FORM
+  LONG_FORM
+  REEL
+  STORY
+  POST
+  CAROUSEL
+  THUMBNAIL
+  AD
+  EDUCATIONAL
+  ENTERTAINMENT
+  PROMOTIONAL
+}
+
+enum ToneType {
+  PROFESSIONAL
+  FRIENDLY
+  FUNNY
+  EDUCATIONAL
+  INSPIRATIONAL
+  LUXURY
+  MINIMAL
+  TECHNICAL
+  CASUAL
+  DRAMATIC
+}
+
+// ==================================================
+// USER & AUTH
+// ==================================================
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  emailVerified     Boolean  @default(false)
+  emailVerifiedAt   DateTime?
+  passwordHash      String?
+  name              String
+  displayName       String?
+  avatarUrl         String?
+  role              UserRole @default(USER)
+  isActive          Boolean  @default(true)
+  isSuspended       Boolean  @default(false)
+  suspendedAt       DateTime?
+  suspendedReason   String?
+  locale            String   @default("en")
+  timezone          String   @default("UTC")
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  sessions          Session[]
+  memberships       Membership[]
+  oauthAccounts     OAuthAccount[]
+  passwordResets    PasswordReset[]
+  emailVerifications EmailVerification[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  creditWallet      CreditWallet?
+  personalOrg       Organization?     @relation("PersonalOrg")
+  
+  @@index([email])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  token        String   @unique
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  refreshExpiresAt DateTime
+  isValid      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+  @@map("sessions")
+}
+
+model OAuthAccount {
+  id             String   @id @default(uuid())
+  userId         String
+  provider       String
+  providerUserId String
+  email          String?
+  name           String?
+  avatarUrl      String?
+  accessToken    String?  // encrypted
+  refreshToken   String?  // encrypted
+  expiresAt      DateTime?
+  scope          String?
+  rawProfile     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("password_resets")
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("email_verifications")
+}
+
+// ==================================================
+// ORGANIZATION & MEMBERSHIP
+// ==================================================
+
+model Organization {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  logoUrl      String?
+  website      String?
+  industry     String?
+  isPersonal   Boolean  @default(false)
+  personalUserId String? @unique
+  plan         PlanTier @default(FREE)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  // Relations
+  personalUser   User?          @relation("PersonalOrg", fields: [personalUserId], references: [id])
+  memberships    Membership[]
+  projects       Project[]
+  assets         Asset[]
+  socialAccounts SocialAccount[]
+  brandProfile   BrandProfile?
+  subscription   Subscription?
+  posts          SocialPost[]
+  templates      Template[]
+  aiRequests     AIRequest[]
+  auditLogs      AuditLog[]
+  featureFlags   OrgFeatureFlag[]
+
+  @@index([slug])
+  @@index([createdAt])
+  @@map("organizations")
+}
+
+model Membership {
+  id             String     @id @default(uuid())
+  userId         String
+  organizationId String
+  role           MemberRole @default(MEMBER)
+  invitedByUserId String?
+  invitedAt      DateTime   @default(now())
+  acceptedAt     DateTime?
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+// ==================================================
+// BILLING & SUBSCRIPTIONS
+// ==================================================
+
+model Plan {
+  id                String   @id @default(uuid())
+  name              String
+  tier              PlanTier @unique
+  description       String?
+  monthlyPrice      Decimal  @default(0)
+  yearlyPrice       Decimal  @default(0)
+  stripePriceIdMonthly String?
+  stripePriceIdYearly  String?
+  monthlyCredits    Int      @default(0)
+  storageGb         Int      @default(1)
+  maxProjects       Int      @default(3)
+  maxSocialAccounts Int      @default(1)
+  maxTeamMembers    Int      @default(1)
+  maxVideoResolution String  @default("720p")
+  maxVideoDurationSec Int    @default(60)
+  analyticsRetentionDays Int @default(30)
+  allowedAIModels   String[] @default([])
+  features          Json     @default("{}")
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  organizationId       String             @unique
+  planId               String
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  metadata             Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+  payments     Payment[]
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  subscriptionId  String?
+  organizationId  String?
+  stripePaymentId String?  @unique
+  stripeInvoiceId String?
+  amount          Decimal
+  currency        String   @default("usd")
+  status          String
+  description     String?
+  metadata        Json?
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([stripePaymentId])
+  @@map("payments")
+}
+
+// ==================================================
+// CREDITS
+// ==================================================
+
+model CreditWallet {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  organizationId String?
+  balance        Int      @default(0)
+  totalPurchased Int      @default(0)
+  totalConsumed  Int      @default(0)
+  totalRefunded  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions CreditTransaction[]
+
+  @@map("credit_wallets")
+}
+
+model CreditTransaction {
+  id            String                @id @default(uuid())
+  walletId      String
+  type          CreditTransactionType
+  amount        Int
+  balance       Int                   // balance after transaction
+  description   String?
+  referenceType String?               // "ai_request", "purchase", etc.
+  referenceId   String?
+  expiresAt     DateTime?
+  metadata      Json?
+  createdAt     DateTime              @default(now())
+
+  wallet CreditWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([createdAt])
+  @@map("credit_transactions")
+}
+
+model CreditUsageRule {
+  id          String   @id @default(uuid())
+  taskType    AITaskType
+  tier        String   // "basic", "standard", "premium"
+  creditsPerUnit Int
+  unitType    String   // "request", "token_1k", "second", "image"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([taskType, tier])
+  @@map("credit_usage_rules")
+}
+
+// ==================================================
+// AI PROVIDERS & MODELS
+// ==================================================
+
+model AIProvider {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  displayName     String
+  description     String?
+  status          AIProviderStatus @default(ACTIVE)
+  apiKeyEncrypted String?
+  baseUrl         String?
+  config          Json?            // provider-specific configuration
+  supportedTasks  AITaskType[]
+  priority        Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  models     AIModel[]
+  requests   AIRequest[]
+
+  @@map("ai_providers")
+}
+
+model AIModel {
+  id               String   @id @default(uuid())
+  providerId       String
+  name             String
+  displayName      String
+  description      String?
+  taskType         AITaskType
+  tier             String   @default("standard") // cheap/standard/premium
+  isEnabled        Boolean  @default(true)
+  maxTokens        Int?
+  contextWindow    Int?
+  costPer1kTokensInput  Decimal @default(0)
+  costPer1kTokensOutput Decimal @default(0)
+  costPerRequest   Decimal  @default(0)
+  costPerImage     Decimal  @default(0)
+  costPerSecond    Decimal  @default(0)
+  fallbackModelId  String?
+  config           Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  provider       AIProvider @relation(fields: [providerId], references: [id])
+  fallbackModel  AIModel?   @relation("ModelFallback", fields: [fallbackModelId], references: [id])
+  fallbackFor    AIModel[]  @relation("ModelFallback")
+  requests       AIRequest[]
+
+  @@unique([providerId, name])
+  @@index([taskType, tier])
+  @@map("ai_models")
+}
+
+model AIRequest {
+  id              String          @id @default(uuid())
+  organizationId  String
+  userId          String?
+  providerId      String
+  modelId         String
+  taskType        AITaskType
+  status          AIRequestStatus @default(PENDING)
+  prompt          String?
+  inputTokens     Int?
+  outputTokens    Int?
+  totalTokens     Int?
+  durationMs      Int?
+  creditsConsumed Int             @default(0)
+  estimatedCostUsd Decimal        @default(0)
+  actualCostUsd   Decimal?
+  referenceType   String?         // "script", "video", "image", etc.
+  referenceId     String?
+  errorCode       String?
+  errorMessage    String?
+  metadata        Json?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  provider     AIProvider   @relation(fields: [providerId], references: [id])
+  model        AIModel      @relation(fields: [modelId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([providerId, createdAt])
+  @@index([taskType, status])
+  @@map("ai_requests")
+}
+
+// ==================================================
+// PROJECTS
+// ==================================================
+
+model Project {
+  id             String        @id @default(uuid())
+  organizationId String
+  createdByUserId String
+  name           String
+  description    String?
+  status         ProjectStatus @default(DRAFT)
+  coverImageUrl  String?
+  tags           String[]      @default([])
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  scripts    Script[]
+  videos     Video[]
+  audios     Audio[]
+  images     Image[]
+  thumbnails Thumbnail[]
+  captions   Caption[]
+  posts      SocialPost[]
+  assets     Asset[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("projects")
+}
+
+// ==================================================
+// SCRIPTS
+// ==================================================
+
+model Script {
+  id             String   @id @default(uuid())
+  organizationId String
+  projectId      String?
+  createdByUserId String
+  title          String
+  topic          String?
+  platform       SocialPlatform?
+  language       String   @default("en")
+  dialect        String?
+  contentType    ContentType?
+  targetAudience String?
+  tone           ToneType?
+  durationSec    Int?
+  goal           String?
+  cta            String?
+  keywords       String[] @default([])
+  brandVoiceId   String?
+  content        Json     // { hook, intro, mainPoints, story, cta, outro, full }
+  wordCount      Int?
+  estimatedDurationSec Int?
+  aiRequestId    String?
+  version        Int      @default(1)
+  isPublished    Boolean  @default(false)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project   Project?   @relation(fields: [projectId], references: [id])
+  brandVoice BrandVoice? @relation(fields: [brandVoiceId], references: [id])
+  versions  ScriptVersion[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("scripts")
+}
+
+model ScriptVersion {
+  id        String   @id @default(uuid())
+  scriptId  String
+  version   Int
+  content   Json
+  createdAt DateTime @default(now())
+
+  script Script @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+
+  @@index([scriptId])
+  @@map("script_versions")
+}
+
+// ==================================================
+// VIDEOS
+// ==================================================
+
+model Video {
+  id              String      @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  createdByUserId String
+  title           String
+  description     String?
+  status          VideoStatus @default(DRAFT)
+  resolution      String?     // "1920x1080"
+  aspectRatio     String?     // "16:9"
+  durationSec     Int?
+  fps             Int?
+  fileUrl         String?
+  thumbnailUrl    String?
+  previewUrl      String?
+  fileSize        BigInt?
+  storageKey      String?
+  scriptId        String?
+  audioId         String?
+  prompt          String?
+  style           String?
+  platform        SocialPlatform?
+  aiRequestId     String?
+  renderJobId     String?
+  errorMessage    String?
+  exportFormats   Json?
+  metadata        Json?
+  publishedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project  Project?  @relation(fields: [projectId], references: [id])
+  scenes   VideoScene[]
+  captions Caption[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@map("videos")
+}
+
+model VideoScene {
+  id          String   @id @default(uuid())
+  videoId     String
+  order       Int
+  type        String   // "text", "image", "video", "transition"
+  content     Json     // scene content/prompt
+  durationSec Float?
+  imageUrl    String?
+  videoUrl    String?
+  text        String?
+  textStyle   Json?
+  transition  String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@map("video_scenes")
+}
+
+// ==================================================
+// AUDIO
+// ==================================================
+
+model Audio {
+  id              String      @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  createdByUserId String
+  name            String
+  type            String      @default("voice") // "voice", "music", "sfx"
+  status          AudioStatus @default(DRAFT)
+  text            String?
+  language        String?
+  voice           String?
+  gender          String?
+  style           String?
+  emotion         String?
+  speed           Float       @default(1.0)
+  durationSec     Float?
+  fileUrl         String?
+  storageKey      String?
+  fileSize        BigInt?
+  aiRequestId     String?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("audios")
+}
+
+// ==================================================
+// IMAGES
+// ==================================================
+
+model Image {
+  id              String      @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  createdByUserId String
+  name            String
+  status          ImageStatus @default(DRAFT)
+  prompt          String?
+  style           String?
+  width           Int?
+  height          Int?
+  aspectRatio     String?
+  quality         String?
+  fileUrl         String?
+  storageKey      String?
+  fileSize        BigInt?
+  mimeType        String?
+  aiRequestId     String?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("images")
+}
+
+// ==================================================
+// THUMBNAILS
+// ==================================================
+
+model Thumbnail {
+  id              String   @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  videoId         String?
+  createdByUserId String
+  title           String?
+  prompt          String?
+  style           String?
+  platform        SocialPlatform?
+  fileUrl         String?
+  storageKey      String?
+  fileSize        BigInt?
+  width           Int?
+  height          Int?
+  aiRequestId     String?
+  isSelected      Boolean  @default(false)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("thumbnails")
+}
+
+// ==================================================
+// CAPTIONS & SUBTITLES
+// ==================================================
+
+model Caption {
+  id              String   @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  videoId         String?
+  createdByUserId String
+  type            String   @default("subtitle") // "subtitle", "social_caption"
+  platform        SocialPlatform?
+  language        String   @default("en")
+  content         String   // Full caption text
+  segments        Json?    // [{start, end, text}] for subtitles
+  hashtags        String[] @default([])
+  charCount       Int?
+  wordCount       Int?
+  aiRequestId     String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+  video   Video?   @relation(fields: [videoId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("captions")
+}
+
+// ==================================================
+// ASSETS (Media Library)
+// ==================================================
+
+model Asset {
+  id              String    @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  uploadedByUserId String
+  name            String
+  originalName    String
+  type            MediaType
+  mimeType        String
+  fileUrl         String
+  storageKey      String
+  fileSize        BigInt
+  width           Int?
+  height          Int?
+  durationSec     Float?
+  thumbnailUrl    String?
+  folderId        String?
+  tags            String[]  @default([])
+  description     String?
+  isPublic        Boolean   @default(false)
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  folder       AssetFolder? @relation(fields: [folderId], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([type])
+  @@map("assets")
+}
+
+model AssetFolder {
+  id             String   @id @default(uuid())
+  organizationId String
+  parentId       String?
+  name           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parent   AssetFolder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children AssetFolder[] @relation("FolderTree")
+  assets   Asset[]
+
+  @@index([organizationId])
+  @@map("asset_folders")
+}
+
+// ==================================================
+// SOCIAL ACCOUNTS
+// ==================================================
+
+model SocialAccount {
+  id               String         @id @default(uuid())
+  organizationId   String
+  platform         SocialPlatform
+  accountId        String         // platform's account/page/channel ID
+  username         String?
+  displayName      String?
+  profileUrl       String?
+  avatarUrl        String?
+  accessTokenEnc   String?        // encrypted
+  refreshTokenEnc  String?        // encrypted
+  tokenExpiresAt   DateTime?
+  scope            String?
+  isActive         Boolean        @default(true)
+  isExpired        Boolean        @default(false)
+  lastSyncAt       DateTime?
+  followerCount    Int?
+  followingCount   Int?
+  postCount        Int?
+  metadata         Json?          // platform-specific data
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posts        SocialPost[]
+  analytics    AnalyticsSnapshot[]
+
+  @@unique([organizationId, platform, accountId])
+  @@index([organizationId])
+  @@map("social_accounts")
+}
+
+// ==================================================
+// SOCIAL POSTS
+// ==================================================
+
+model SocialPost {
+  id              String         @id @default(uuid())
+  organizationId  String
+  projectId       String?
+  createdByUserId String
+  socialAccountId String
+  platform        SocialPlatform
+  status          PostStatus     @default(DRAFT)
+  caption         String?
+  hashtags        String[]       @default([])
+  mediaUrls       String[]       @default([])
+  platformPostId  String?        // ID returned after publishing
+  platformUrl     String?        // URL of published post
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  retryCount      Int            @default(0)
+  idempotencyKey  String?        @unique
+  metadata        Json?          // platform-specific fields
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  project       Project?      @relation(fields: [projectId], references: [id])
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id])
+  analytics     AnalyticsSnapshot[]
+
+  @@index([organizationId])
+  @@index([socialAccountId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("social_posts")
+}
+
+// ==================================================
+// ANALYTICS
+// ==================================================
+
+model AnalyticsSnapshot {
+  id              String         @id @default(uuid())
+  organizationId  String
+  socialAccountId String?
+  postId          String?
+  platform        SocialPlatform
+  snapshotDate    DateTime
+  views           Int            @default(0)
+  likes           Int            @default(0)
+  comments        Int            @default(0)
+  shares          Int            @default(0)
+  saves           Int            @default(0)
+  reach           Int            @default(0)
+  impressions     Int            @default(0)
+  clicks          Int            @default(0)
+  watchTimeSec    Int            @default(0)
+  engagementRate  Float          @default(0)
+  followerCount   Int?
+  followerDelta   Int?
+  rawData         Json?
+  createdAt       DateTime       @default(now())
+
+  socialAccount SocialAccount? @relation(fields: [socialAccountId], references: [id])
+  post          SocialPost?    @relation(fields: [postId], references: [id])
+
+  @@index([organizationId, snapshotDate])
+  @@index([socialAccountId, snapshotDate])
+  @@index([postId])
+  @@map("analytics_snapshots")
+}
+
+// ==================================================
+// BRAND PROFILE & VOICE
+// ==================================================
+
+model BrandProfile {
+  id             String    @id @default(uuid())
+  organizationId String    @unique
+  brandName      String?
+  description    String?
+  industry       String?
+  niche          String?
+  targetAudience String?
+  language       String    @default("en")
+  primaryColor   String?
+  secondaryColor String?
+  fontPrimary    String?
+  fontSecondary  String?
+  logoUrl        String?
+  cta            String?
+  keywords       String[]  @default([])
+  forbiddenWords String[]  @default([])
+  preferredPhrases String[] @default([])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  brandVoices  BrandVoice[]
+
+  @@map("brand_profiles")
+}
+
+model BrandVoice {
+  id             String   @id @default(uuid())
+  brandProfileId String
+  name           String
+  toneType       ToneType
+  description    String?
+  instructions   String?  // custom AI instructions
+  examples       String[] @default([])
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  brandProfile BrandProfile @relation(fields: [brandProfileId], references: [id], onDelete: Cascade)
+  scripts      Script[]
+
+  @@index([brandProfileId])
+  @@map("brand_voices")
+}
+
+// ==================================================
+// TEMPLATES
+// ==================================================
+
+model Template {
+  id             String         @id @default(uuid())
+  organizationId String?        // null = global template
+  createdByUserId String?
+  name           String
+  description    String?
+  type           String         // "video", "script", "caption", "thumbnail", etc.
+  platform       SocialPlatform?
+  contentType    ContentType?
+  content        Json           // template content with variables
+  variables      String[]       @default([]) // ["topic", "hook", "cta"]
+  thumbnailUrl   String?
+  isPublic       Boolean        @default(false)
+  useCount       Int            @default(0)
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([type])
+  @@map("templates")
+}
+
+// ==================================================
+// JOBS
+// ==================================================
+
+model Job {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String?
+  queue          String
+  type           String
+  status         JobStatus @default(WAITING)
+  progress       Int       @default(0)
+  priority       Int       @default(0)
+  payload        Json
+  result         Json?
+  error          String?
+  errorStack     String?
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  bullJobId      String?   // BullMQ job ID
+  referenceType  String?
+  referenceId    String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([queue, status])
+  @@index([bullJobId])
+  @@index([referenceType, referenceId])
+  @@map("jobs")
+}
+
+// ==================================================
+// NOTIFICATIONS
+// ==================================================
+
+model Notification {
+  id             String           @id @default(uuid())
+  userId         String
+  organizationId String?
+  type           NotificationType
+  title          String
+  message        String
+  data           Json?
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  emailSentAt    DateTime?
+  createdAt      DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==================================================
+// AUDIT LOG
+// ==================================================
+
+model AuditLog {
+  id             String      @id @default(uuid())
+  organizationId String?
+  userId         String?
+  action         AuditAction
+  resourceType   String?
+  resourceId     String?
+  ipAddress      String?
+  userAgent      String?
+  before         Json?
+  after          Json?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  user         User?         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ==================================================
+// FEATURE FLAGS
+// ==================================================
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  isEnabled   Boolean  @default(false)
+  rollout     Int      @default(100) // percentage 0-100
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orgOverrides OrgFeatureFlag[]
+
+  @@map("feature_flags")
+}
+
+model OrgFeatureFlag {
+  id             String   @id @default(uuid())
+  organizationId String
+  featureFlagId  String
+  isEnabled      Boolean
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  featureFlag  FeatureFlag  @relation(fields: [featureFlagId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, featureFlagId])
+  @@map("org_feature_flags")
+}
+
+// ==================================================
+// CONTENT IDEAS & PLANNER
+// ==================================================
+
+model ContentIdea {
+  id             String         @id @default(uuid())
+  organizationId String
+  createdByUserId String
+  title          String
+  hook           String?
+  description    String?
+  platform       SocialPlatform?
+  contentType    ContentType?
+  contentPillar  String?
+  estimatedDifficulty String?   // "easy", "medium", "hard"
+  cta            String?
+  isSaved        Boolean        @default(false)
+  isUsed         Boolean        @default(false)
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([organizationId])
+  @@map("content_ideas")
+}
+
+model ContentPlan {
+  id             String   @id @default(uuid())
+  organizationId String
+  createdByUserId String
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  platforms      SocialPlatform[]
+  frequency      Json     // { monday: [...], tuesday: [...] }
+  niche          String?
+  goals          String[] @default([])
+  contentPillars String[] @default([])
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items ContentPlanItem[]
+
+  @@index([organizationId])
+  @@map("content_plans")
+}
+
+model ContentPlanItem {
+  id            String         @id @default(uuid())
+  planId        String
+  scheduledDate DateTime
+  platform      SocialPlatform
+  contentType   ContentType?
+  title         String?
+  description   String?
+  status        PostStatus     @default(DRAFT)
+  postId        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  plan ContentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@map("content_plan_items")
+}
+
+// ==================================================
+// WEBHOOKS
+// ==================================================
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  source      String   // "stripe", "meta", "youtube", etc.
+  eventType   String
+  payload     Json
+  signature   String?
+  isProcessed Boolean  @default(false)
+  processedAt DateTime?
+  error       String?
+  retryCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([source, isProcessed])
+  @@index([createdAt])
+  @@map("webhook_events")
+}

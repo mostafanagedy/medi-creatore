@@ -1,0 +1,58 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── Build outputs ────────────────────────────────────────────
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Environment & secrets (NEVER commit) ─────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Testing ──────────────────────────────────────────────────
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# ── Prisma ───────────────────────────────────────────────────
+# Keep migrations tracked; ignore local SQLite dev DBs only
+*.db
+*.db-journal
+
+# ── Docker local data ────────────────────────────────────────
+infrastructure/docker/**/data/
+postgres_data/
+redis_data/
+
+# ── Uploads / local media ────────────────────────────────────
+uploads/
+tmp/
+
+# ── OS / Editor ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp

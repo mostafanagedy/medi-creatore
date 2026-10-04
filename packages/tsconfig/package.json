@@ -1,0 +1,7 @@
+{
+  "name": "@ai-content-os/tsconfig",
+  "version": "0.0.1",
+  "private": true,
+  "files": ["*.json"],
+  "license": "MIT"
+}

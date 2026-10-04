@@ -1,0 +1,34 @@
+{
+  "name": "ai-content-os",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "description": "AI Content Operating System — AI-powered content creation, video generation, and social media management SaaS",
+  "scripts": {
+    "build": "npx turbo run build",
+    "dev": "npx turbo run dev",
+    "lint": "npx turbo run lint",
+    "lint:fix": "npx turbo run lint:fix",
+    "typecheck": "npx turbo run typecheck",
+    "test": "npx turbo run test",
+    "test:e2e": "npx turbo run test:e2e",
+    "clean": "npx turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "db:generate": "npx turbo run db:generate",
+    "db:push": "npx turbo run db:push",
+    "db:migrate": "npx turbo run db:migrate",
+    "db:seed": "npx turbo run db:seed",
+    "docker:dev": "docker-compose -f docker-compose.yml up -d",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.0",
+    "prettier-plugin-tailwindcss": "^0.6.0",
+    "turbo": "^2.11.7",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
