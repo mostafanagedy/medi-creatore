@@ -67,7 +67,7 @@ const navSections: NavSection[] = [
   {
     title: 'SOCIAL',
     items: [
-      { label: 'Accounts', href: '/social/accounts', icon: Share2 },
+      { label: 'Connected Apps', href: '/social/accounts', icon: Share2 },
       { label: 'Posts', href: '/social/posts', icon: LayoutDashboard },
       { label: 'Scheduler', href: '/social/scheduler', icon: CalendarDays },
       { label: 'Analytics', href: '/social/analytics', icon: BarChart3 },
@@ -79,25 +79,16 @@ const navSections: NavSection[] = [
       { label: 'AI Assistant', href: '/ai/assistant', icon: Brain },
       { label: 'Content Ideas', href: '/ai/ideas', icon: Lightbulb },
       { label: 'Content Planner', href: '/ai/planner', icon: CalendarDays },
-      { label: 'Brand Voice', href: '/ai/brand', icon: Palette },
+      { label: 'Creator Voice', href: '/ai/brand', icon: Palette },
       { label: 'Repurpose', href: '/ai/repurpose', icon: Repeat2 },
-    ],
-  },
-  {
-    title: 'BILLING',
-    items: [
-      { label: 'Subscription', href: '/billing/subscription', icon: CreditCard },
-      { label: 'Credits', href: '/billing/credits', icon: Coins },
-      { label: 'Usage', href: '/billing/usage', icon: Activity },
     ],
   },
   {
     title: 'SETTINGS',
     items: [
       { label: 'Profile', href: '/settings/profile', icon: User2 },
-      { label: 'Organization', href: '/settings/organization', icon: Building2 },
-      { label: 'Integrations', href: '/settings/integrations', icon: Server },
       { label: 'Security', href: '/settings/security', icon: Shield },
+      { label: 'Billing & Credits', href: '/settings/billing', icon: CreditCard },
       { label: 'Notifications', href: '/settings/notifications', icon: Bell },
     ],
   },
@@ -125,6 +116,8 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const currentPlan = user?.plan ?? 'Starter';
+  const maxCredits = currentPlan === 'Pro' ? 50000 : currentPlan === 'Creator' ? 10000 : 1000;
 
   const allSections = isAdmin ? [...navSections, adminSection] : navSections;
 
@@ -178,10 +171,13 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
                   <Zap className="w-3 h-3 text-primary" />
                   <span className="text-xs text-muted-foreground">Credits</span>
                 </div>
-                <span className="text-xs font-bold text-primary">1,850</span>
+                <span className="text-xs font-bold text-primary">{user?.credits?.toLocaleString() ?? 0}</span>
               </div>
               <div className="mt-1.5 h-1 bg-primary/10 rounded-full overflow-hidden">
-                <div className="h-full bg-brand-gradient rounded-full w-[62%]" />
+                <div 
+                  className="h-full bg-brand-gradient rounded-full" 
+                  style={{ width: `${Math.min(((user?.credits ?? 0) / maxCredits) * 100, 100)}%` }} 
+                />
               </div>
             </motion.div>
           )}
@@ -268,7 +264,7 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center justify-center p-2 rounded-lg hover:bg-accent cursor-pointer">
-                  <div className="w-6 h-6 rounded-full bg-brand-gradient flex items-center justify-center text-[10px] font-bold text-white">
+                  <div className="w-8 h-8 rounded-full bg-brand-gradient flex items-center justify-center text-[10px] font-bold text-white">
                     {user?.name?.[0]?.toUpperCase() ?? 'U'}
                   </div>
                 </div>
@@ -276,21 +272,23 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
               <TooltipContent side="right">{user?.name ?? 'User'}</TooltipContent>
             </Tooltip>
           ) : (
-            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent cursor-pointer group">
-              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer group overflow-hidden">
+              <div className="w-8 h-8 rounded-full bg-brand-gradient flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                 {user?.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate">{user?.name ?? 'User'}</div>
-                <div className="text-[10px] text-muted-foreground truncate">{user?.email ?? ''}</div>
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="text-sm font-medium truncate leading-tight">{user?.name ?? 'User'}</div>
+                {user?.email && (
+                  <div className="text-xs text-muted-foreground truncate leading-tight mt-0.5">{user.email}</div>
+                )}
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={logout}
               >
-                <LogOut className="w-3 h-3" />
+                <LogOut className="w-4 h-4" />
               </Button>
             </div>
           )}

@@ -19,10 +19,35 @@ export class MediaService {
 
   async createUploadUrl(userId: string, dto: UploadUrlDto) {
     await this.orgs.assertMember(userId, dto.organizationId, MemberRole.EDITOR);
-    if (dto.fileSize > MAX_FILE_SIZE) throw new BadRequestException('File too large (max 500 MB)');
-    if (!ALLOWED_PREFIXES.some((p) => dto.mimeType.startsWith(p)) && !ALLOWED_EXACT.includes(dto.mimeType)) {
-      throw new BadRequestException(`File type not allowed: ${dto.mimeType}`);
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id: dto.organizationId },
+      include: {
+        subscription: {
+          include: { plan: true },
+        },
+      },
+    });
+
+    const activePlan = org?.subscription?.status === 'ACTIVE' ? org.subscription.plan : null;
+    const features = activePlan?.features as any;
+    const maxFileSizeMb = features?.maxFileSizeMb ? Number(features.maxFileSizeMb) : 50; // Default 50MB
+    const dynamicMaxFileSize = maxFileSizeMb * 1024 * 1024;
+
+    if (dto.fileSize > dynamicMaxFileSize) {
+      throw new BadRequestException(`File too large (max allowed by your plan is ${maxFileSizeMb} MB)`);
     }
+
+    if (!ALLOWED_PREFIXES.some((p) => dto.mimeType.startsWith(p)) && !ALLOWED_EXACT.includes(dto.mimeType)) {
+      throw new BadRequestException(`File type not allowed: ${dto.mimeType}. Allowed: Images, Videos, Audio, PDF.`);
+    }
+
+    // Security: Block execution-prone extensions
+    const suspiciousExts = ['.exe', '.sh', '.bat', '.cmd', '.msi', '.js', '.php', '.py', '.html', '.htm'];
+    if (suspiciousExts.some(ext => dto.filename.toLowerCase().endsWith(ext))) {
+      throw new BadRequestException(`Executable and script files are not permitted for security reasons.`);
+    }
+
     return this.storage.createUploadUrl(this.storage.buildKey(dto.organizationId, dto.filename), dto.mimeType);
   }
 

@@ -8,6 +8,7 @@ import { RunwayMLProvider } from './providers/runwayml.provider';
 import { OpenAIProvider } from './providers/openai.provider';
 import { AnthropicProvider } from './providers/anthropic.provider';
 import { MockAIProvider } from './providers/mock.provider';
+import { OmnirouteProvider } from './providers/omniroute.provider';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { UsersModule } from '../users/users.module';
     OpenAIProvider,
     AnthropicProvider,
     MockAIProvider,
+    OmnirouteProvider,
   ],
   exports: [AIGatewayService],
 })
@@ -33,6 +35,7 @@ export class AIModule implements OnModuleInit {
     private readonly openai: OpenAIProvider,
     private readonly anthropic: AnthropicProvider,
     private readonly mock: MockAIProvider,
+    private readonly omniroute: OmnirouteProvider,
     private readonly config: ConfigService,
   ) {}
 
@@ -67,6 +70,11 @@ export class AIModule implements OnModuleInit {
     // Register Anthropic (if configured)
     if (this.anthropic.isAvailable) {
       this.gateway.registerTextProvider('anthropic', this.anthropic);
+    }
+
+    // Register Omniroute (if configured)
+    if (this.omniroute.isAvailable) {
+      this.gateway.registerTextProvider('omniroute', this.omniroute);
     }
 
     // Register Mock (dev/test only)

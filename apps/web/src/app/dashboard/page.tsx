@@ -16,6 +16,9 @@ import {
 } from 'recharts';
 import Link from 'next/link';
 
+import { useAuthStore } from '@/stores/auth.store';
+import { useRouter } from 'next/navigation';
+
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
@@ -50,6 +53,20 @@ const platformData = [
 ];
 
 export default function DashboardPage() {
+  const { user } = useAuthStore();
+  const router = useRouter();
+  const credits = user?.credits ?? 0;
+  const currentPlan = user?.plan ?? 'Starter';
+  const maxCredits = currentPlan === 'Pro' ? 50000 : currentPlan === 'Creator' ? 10000 : 1000;
+  
+  const handleQuickCreate = (href: string) => {
+    if (credits === 0) {
+      alert("Insufficient credits. Please recharge your account.");
+      return;
+    }
+    router.push(href);
+  };
+
   return (
     <motion.div
       initial="hidden"
@@ -60,31 +77,35 @@ export default function DashboardPage() {
       {/* Welcome header */}
       <motion.div variants={fadeIn} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Good evening, Creator! 👋</h1>
+          <h1 className="text-2xl font-bold">Good evening, {user?.name || 'Creator'}! 👋</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Here's what's happening with your content today.
           </p>
         </div>
         <div className="flex gap-3">
-          <Link href="/create/video">
-            <Button className="bg-brand-gradient text-white border-0 hover:opacity-90 gap-2">
-              <Plus className="w-4 h-4" />
-              New Content
-            </Button>
-          </Link>
+          <Button 
+            className="bg-brand-gradient text-white border-0 hover:opacity-90 gap-2"
+            onClick={() => handleQuickCreate('/create/video')}
+          >
+            <Plus className="w-4 h-4" />
+            New Content
+          </Button>
         </div>
       </motion.div>
 
       {/* Stats row */}
       <motion.div variants={stagger} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Videos', value: '47', icon: Video, change: '+5 this week', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-          { label: 'Scheduled Posts', value: '12', icon: CalendarCheck2, change: '3 publishing today', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-          { label: 'Connected Accounts', value: '6', icon: Share2, change: 'All active', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-          { label: 'Credits Remaining', value: '1,850', icon: Zap, change: '62% of monthly', color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
+          { label: 'Total Videos', value: '47', href: '/create/video', icon: Video, change: '+5 this week', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+          { label: 'Scheduled Posts', value: '12', href: '/social/scheduler', icon: CalendarCheck2, change: '3 publishing today', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
+          { label: 'Connected Accounts', value: '6', href: '/social/accounts', icon: Share2, change: 'All active', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+          { label: 'Credits Remaining', value: credits.toLocaleString(), href: '/settings/billing', icon: Zap, change: `${Math.round((credits / maxCredits) * 100)}% of monthly`, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
         ].map((stat) => (
           <motion.div key={stat.label} variants={fadeIn}>
-            <Card className={`glass-card border ${stat.border} hover:shadow-card-hover transition-all duration-300 group`}>
+            <Card 
+              className={`glass-card border ${stat.border} hover:shadow-card-hover transition-all duration-300 group cursor-pointer`}
+              onClick={() => router.push(stat.href)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
@@ -266,7 +287,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
               <div className="flex justify-between items-end">
                 <div>
-                  <div className="text-3xl font-extrabold text-primary">1,850</div>
+                  <div className="text-3xl font-extrabold text-primary">{credits.toLocaleString()}</div>
                   <div className="text-xs text-muted-foreground">of 3,000 monthly</div>
                 </div>
                 <div className="text-xs text-muted-foreground text-right">
@@ -274,7 +295,7 @@ export default function DashboardPage() {
                   <div className="font-medium text-foreground">18 days</div>
                 </div>
               </div>
-              <Progress value={62} className="h-2" />
+              <Progress value={Math.min((credits / 3000) * 100, 100)} className="h-2" />
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 {[
                   { label: 'Scripts', used: 42 },
@@ -313,16 +334,16 @@ export default function DashboardPage() {
                 { label: 'Avatar', href: '/create/avatar', icon: '👤' },
                 { label: 'Ideas', href: '/ai/ideas', icon: '💡' },
               ].map((item) => (
-                <Link key={item.href} href={item.href}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full h-8 text-xs border-white/10 hover:bg-primary/10 hover:border-primary/30 hover:text-primary gap-1.5"
-                  >
-                    <span>{item.icon}</span>
-                    {item.label}
-                  </Button>
-                </Link>
+                <Button
+                  key={item.href}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickCreate(item.href)}
+                  className="w-full h-8 text-xs border-white/10 hover:bg-primary/10 hover:border-primary/30 hover:text-primary gap-1.5"
+                >
+                  <span>{item.icon}</span>
+                  {item.label}
+                </Button>
               ))}
             </CardContent>
           </Card>

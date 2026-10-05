@@ -9,6 +9,8 @@ interface User {
   avatarUrl: string | null;
   role: string;
   emailVerified: boolean;
+  credits?: number;
+  plan?: string;
 }
 
 interface AuthStore {

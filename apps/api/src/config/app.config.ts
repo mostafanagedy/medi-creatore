@@ -65,6 +65,8 @@ const configSchema = z.object({
   // AI Providers
   OLLAMA_API_KEY: z.string().optional(),
   OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
+  OMNIROUTE_API_KEY: z.string().optional(),
+  OMNIROUTE_BASE_URL: z.string().default('http://localhost:20128/v1'),
   CODECRAFT_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),

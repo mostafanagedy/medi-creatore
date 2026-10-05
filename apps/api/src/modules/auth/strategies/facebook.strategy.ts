@@ -16,8 +16,8 @@ export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
     console.log('----------------------');
 
     super({
-      clientID: configService.get<string>('facebook.appId'),
-      clientSecret: configService.get<string>('facebook.appSecret'),
+      clientID: configService.get<string>('META_CLIENT_ID') || configService.get<string>('META_APP_ID') || 'dummy-client-id',
+      clientSecret: configService.get<string>('META_CLIENT_SECRET') || 'dummy-secret',
       callbackURL: `${configService.get<string>('API_URL', 'http://localhost:3001')}/api/v1/auth/facebook/callback`,
       scope: ['email'],
       profileFields: ['id', 'emails', 'name', 'displayName', 'picture.type(large)'],

@@ -43,3 +43,4 @@ import { AuditModule } from '../audit/audit.module';
   exports: [AuthService, TokenService, JwtModule],
 })
 export class AuthModule {}
+
