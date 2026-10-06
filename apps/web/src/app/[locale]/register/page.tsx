@@ -203,28 +203,39 @@ export default function RegisterPage() {
         </motion.div>
       </div>
 
-      {/* Right — brand panel */}
-      <div className="hidden lg:flex flex-1 relative bg-[#080812] items-center justify-center p-12 border-l border-white/5 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/10 rounded-full blur-3xl" />
-        <div className="relative text-center max-w-sm">
+      {/* Right — brand panel with AI videos */}
+      <div className="hidden lg:flex flex-1 relative bg-[#080812] items-center justify-center p-12 overflow-hidden border-l border-white/5">
+        {/* Background glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[100px] z-0" />
+        
+        {/* Video grid layout */}
+        <div className="absolute inset-0 z-0 opacity-40 overflow-hidden pointer-events-none">
+          <div className="grid grid-cols-2 gap-6 h-[140%] w-[140%] -translate-x-[15%] -translate-y-[15%] -rotate-12">
+            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl brightness-75" />
+            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl translate-y-24 brightness-75" />
+            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl -translate-y-24 brightness-75" />
+            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl brightness-75" />
+          </div>
+        </div>
+
+        {/* Content overlay */}
+        <div className="relative z-10 glass-card p-10 rounded-3xl max-w-md text-center border border-white/10 bg-background/60 backdrop-blur-xl shadow-2xl">
           <div className="text-5xl mb-6">✨</div>
-          <h2 className="text-2xl font-bold mb-4">
+          <h2 className="text-3xl font-bold mb-4">
             Create 10x more content{' '}
             <span className="gradient-text">with AI</span>
           </h2>
-          <p className="text-muted-foreground leading-relaxed">
-            Join thousands of creators who use AI Content OS to generate videos, scripts, and images in seconds.
+          <p className="text-muted-foreground leading-relaxed mb-8">
+            Join thousands of creators who use AI Content OS to generate viral videos, scripts, and images in seconds.
           </p>
-          <div className="mt-8 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {[
               { value: '47K+', label: 'Videos Created' },
               { value: '150+', label: 'Creators' },
-              { value: '6', label: 'Platforms' },
-              { value: '99.9%', label: 'Uptime' },
             ].map((stat) => (
-              <div key={stat.label} className="glass-card p-3 rounded-xl text-left">
-                <div className="text-xl font-bold gradient-text">{stat.value}</div>
-                <div className="text-xs text-muted-foreground">{stat.label}</div>
+              <div key={stat.label} className="bg-white/5 p-4 rounded-xl text-center border border-white/10">
+                <div className="text-2xl font-bold gradient-text">{stat.value}</div>
+                <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
               </div>
             ))}
           </div>

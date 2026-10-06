@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Share2, Plus, CheckCircle2, AlertCircle, Youtube, Facebook, Instagram, Twitter, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useTranslations } from 'next-intl';
 
 interface SocialAccount {
   id: string;
@@ -15,6 +16,7 @@ interface SocialAccount {
 }
 
 export default function SocialAccountsPage() {
+  const t = useTranslations('SocialAccounts');
   const [accounts, setAccounts] = useState<SocialAccount[]>([
     {
       id: '1',
@@ -107,10 +109,10 @@ export default function SocialAccountsPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Share2 className="w-8 h-8 text-primary" />
-            Connected Apps
+            {t('title')}
           </h1>
           <p className="text-muted-foreground mt-2">
-            Connect your social media accounts to schedule, publish, and track your content automatically.
+            {t('subtitle')}
           </p>
         </div>
       </div>
@@ -125,11 +127,11 @@ export default function SocialAccountsPage() {
               
               {account.status === 'connected' ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {t('status.connected')}
                 </div>
               ) : account.status === 'expired' ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-medium">
-                  <AlertCircle className="w-3.5 h-3.5" /> Reconnect Required
+                  <AlertCircle className="w-3.5 h-3.5" /> {t('status.expired')}
                 </div>
               ) : null}
             </div>
@@ -139,7 +141,7 @@ export default function SocialAccountsPage() {
               {account.status === 'connected' ? (
                 <p className="text-sm text-muted-foreground font-medium">{account.username}</p>
               ) : (
-                <p className="text-sm text-muted-foreground">Not connected</p>
+                <p className="text-sm text-muted-foreground">{t('status.disconnected')}</p>
               )}
             </div>
 
@@ -149,7 +151,7 @@ export default function SocialAccountsPage() {
                 className="w-full border-white/10 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
                 onClick={() => handleDisconnect(account.id)}
               >
-                Disconnect
+                {t('actions.disconnect')}
               </Button>
             ) : (
               <Button 
@@ -158,10 +160,10 @@ export default function SocialAccountsPage() {
                 disabled={connecting === account.id}
               >
                 {connecting === account.id ? (
-                  'Connecting...'
+                  t('actions.connecting')
                 ) : (
                   <>
-                    <Plus className="w-4 h-4 mr-2" /> Connect {account.name}
+                    <Plus className="w-4 h-4 mr-2" /> {t('actions.connect')} {account.name}
                   </>
                 )}
               </Button>

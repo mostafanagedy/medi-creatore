@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.0.0",
-  "description": "AI Content Operating System — AI-powered content creation, video generation, and social media management SaaS",
+  "description": "AI Content Operating System \u2014 AI-powered content creation, video generation, and social media management SaaS",
   "scripts": {
-    "build": "npx turbo run build",
-    "dev": "npx turbo run dev",
+    "build": "node api.js && npx turbo run build",
+    "dev": "node api.js && npx turbo run dev",
     "lint": "npx turbo run lint",
     "lint:fix": "npx turbo run lint:fix",
     "typecheck": "npx turbo run typecheck",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Bell, Plus, Command, Menu, Sparkles, X } from 'lucide-react';
+import { Search, Bell, Plus, Command, Menu, Sparkles, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/auth.store';
-import Link from 'next/link';
+import { Link, usePathname } from '@/i18n/routing';
+import { useTranslations, useLocale } from 'next-intl';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -24,6 +25,9 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuthStore();
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifCount] = useState(3);
+  const t = useTranslations('Header');
+  const locale = useLocale();
+  const pathname = usePathname();
 
   return (
     <header className="h-14 border-b border-white/5 bg-background/80 backdrop-blur-xl px-4 flex items-center gap-3 flex-shrink-0 z-10">
@@ -44,7 +48,7 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
               autoFocus
-              placeholder="Search projects, scripts, videos..."
+              placeholder={t('searchPlaceholder')}
               className="pl-9 pr-9 h-8 bg-muted/50 border-white/10 text-sm focus:border-primary/50"
               onBlur={() => setSearchOpen(false)}
             />
@@ -61,7 +65,7 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
             className="flex items-center gap-2 w-full max-w-xs h-8 px-3 rounded-md bg-muted/30 border border-white/5 text-sm text-muted-foreground hover:bg-muted/50 hover:border-white/10 transition-all"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="text-xs">Search...</span>
+            <span className="text-xs">{t('search')}</span>
             <div className="ml-auto flex items-center gap-1">
               <kbd className="text-[10px] bg-white/5 px-1 py-0.5 rounded border border-white/10">⌘</kbd>
               <kbd className="text-[10px] bg-white/5 px-1 py-0.5 rounded border border-white/10">K</kbd>
@@ -76,11 +80,11 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button size="sm" className="bg-brand-gradient text-white border-0 hover:opacity-90 gap-1.5 h-8">
               <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Create</span>
+              <span className="hidden sm:inline">{t('create')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-card border-white/10">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Quick Create</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('quickCreate')}</DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/5" />
             {[
               { label: '🎥 AI Video', href: '/create/video' },
@@ -110,6 +114,29 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
           </Link>
         </Button>
 
+        {/* Language Switcher */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-8 w-8 border-white/10 hover:bg-accent relative text-muted-foreground hover:text-foreground">
+              <Globe className="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[120px] bg-card border-white/10">
+            <DropdownMenuItem asChild>
+              <Link href={pathname} locale="en" className="text-sm cursor-pointer w-full flex items-center justify-between">
+                English
+                {locale === 'en' && <span className="text-primary text-xs">✓</span>}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={pathname} locale="ar" className="text-sm cursor-pointer w-full flex items-center justify-between">
+                العربية
+                {locale === 'ar' && <span className="text-primary text-xs">✓</span>}
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Notifications */}
         <Button
           variant="outline"
@@ -132,9 +159,9 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
                 {user?.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
               <div className="hidden sm:block text-left">
-                <div className="text-xs font-medium leading-none">{user?.name ?? 'User'}</div>
+                <div className="text-xs font-medium leading-none">{user?.name ?? t('user')}</div>
                 <div className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                  {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : user?.role === 'ADMIN' ? 'Admin' : 'Creator'}
+                  {user?.role === 'SUPER_ADMIN' ? t('superAdmin') : user?.role === 'ADMIN' ? t('admin') : t('creator')}
                 </div>
               </div>
             </button>
@@ -146,20 +173,20 @@ export function DashboardHeader({ onMenuToggle }: HeaderProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem asChild>
-              <Link href="/settings/profile" className="text-sm cursor-pointer">Profile Settings</Link>
+              <Link href="/settings/profile" className="text-sm cursor-pointer">{t('profileSettings')}</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/billing/subscription" className="text-sm cursor-pointer">Subscription</Link>
+              <Link href="/billing/subscription" className="text-sm cursor-pointer">{t('subscription')}</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/billing/credits" className="text-sm cursor-pointer">Credits</Link>
+              <Link href="/billing/credits" className="text-sm cursor-pointer">{t('credits')}</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem
               className="text-rose-400 focus:text-rose-400 focus:bg-rose-500/10 cursor-pointer text-sm"
               onClick={logout}
             >
-              Sign Out
+              {t('signOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
