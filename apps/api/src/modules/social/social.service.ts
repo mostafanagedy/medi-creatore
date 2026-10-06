@@ -95,10 +95,11 @@ export class SocialService {
       data: {
         organizationId,
         createdByUserId: userId,
-        accountId: account.id,
-        content: content,
+        socialAccountId: account.id,
+        platform: account.platform,
+        caption: typeof content === 'string' ? content : JSON.stringify(content),
         mediaUrls: videoUrl ? [videoUrl] : [],
-        status: 'QUEUED', // Usually pushed to a BullMQ queue here
+        status: 'SCHEDULED', // Usually pushed to a BullMQ queue here
       },
     });
 

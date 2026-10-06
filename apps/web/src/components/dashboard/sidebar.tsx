@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useAuthStore } from '@/stores/auth.store';
 
+import { useTranslations } from 'next-intl';
+
 interface NavItem {
   label: string;
   href: string;
@@ -36,77 +38,6 @@ interface NavSection {
   items: NavItem[];
 }
 
-const navSections: NavSection[] = [
-  {
-    title: '',
-    items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: 'CREATE',
-    items: [
-      { label: 'AI Video', href: '/create/video', icon: Video, isNew: true },
-      { label: 'AI Image', href: '/create/image', icon: Image },
-      { label: 'AI Script', href: '/create/script', icon: FileText },
-      { label: 'AI Voice', href: '/create/voice', icon: Mic },
-      { label: 'AI Avatar', href: '/create/avatar', icon: User2, isNew: true },
-      { label: 'AI Thumbnail', href: '/create/thumbnail', icon: Layers },
-    ],
-  },
-  {
-    title: 'CONTENT',
-    items: [
-      { label: 'Projects', href: '/content/projects', icon: FolderOpen },
-      { label: 'Media Library', href: '/content/media', icon: Library },
-      { label: 'Scripts', href: '/content/scripts', icon: FileText },
-      { label: 'Templates', href: '/content/templates', icon: Layers },
-      { label: 'Calendar', href: '/content/calendar', icon: Calendar },
-    ],
-  },
-  {
-    title: 'SOCIAL',
-    items: [
-      { label: 'Connected Apps', href: '/social/accounts', icon: Share2 },
-      { label: 'Posts', href: '/social/posts', icon: LayoutDashboard },
-      { label: 'Scheduler', href: '/social/scheduler', icon: CalendarDays },
-      { label: 'Analytics', href: '/social/analytics', icon: BarChart3 },
-    ],
-  },
-  {
-    title: 'AI',
-    items: [
-      { label: 'AI Assistant', href: '/ai/assistant', icon: Brain },
-      { label: 'Content Ideas', href: '/ai/ideas', icon: Lightbulb },
-      { label: 'Content Planner', href: '/ai/planner', icon: CalendarDays },
-      { label: 'Creator Voice', href: '/ai/brand', icon: Palette },
-      { label: 'Repurpose', href: '/ai/repurpose', icon: Repeat2 },
-    ],
-  },
-  {
-    title: 'SETTINGS',
-    items: [
-      { label: 'Profile', href: '/settings/profile', icon: User2 },
-      { label: 'Security', href: '/settings/security', icon: Shield },
-      { label: 'Billing & Credits', href: '/settings/billing', icon: CreditCard },
-      { label: 'Notifications', href: '/settings/notifications', icon: Bell },
-    ],
-  },
-];
-
-const adminSection: NavSection = {
-  title: 'ADMIN',
-  items: [
-    { label: 'Users', href: '/admin/users', icon: Users },
-    { label: 'Organizations', href: '/admin/organizations', icon: Building2 },
-    { label: 'AI Providers', href: '/admin/ai/providers', icon: Cpu },
-    { label: 'AI Models', href: '/admin/ai/models', icon: Brain },
-    { label: 'Jobs', href: '/admin/jobs', icon: Activity },
-    { label: 'Costs', href: '/admin/ai/costs', icon: Receipt },
-    { label: 'System Health', href: '/admin/health', icon: Server },
-  ],
-};
-
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -114,12 +45,90 @@ interface SidebarProps {
 
 export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const { user, logout, viewMode } = useAuthStore();
+  const t = useTranslations('Sidebar');
+  
+  const navSections: NavSection[] = [
+    {
+      title: '',
+      items: [
+        { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      title: t('create'),
+      items: [
+        { label: t('aiVideo'), href: '/create/video', icon: Video, isNew: true },
+        { label: t('aiImage'), href: '/create/image', icon: Image },
+        { label: t('aiScript'), href: '/create/script', icon: FileText },
+        { label: t('aiVoice'), href: '/create/voice', icon: Mic },
+        { label: t('aiAvatar'), href: '/create/avatar', icon: User2, isNew: true },
+        { label: t('aiThumbnail'), href: '/create/thumbnail', icon: Layers },
+      ],
+    },
+    {
+      title: t('content'),
+      items: [
+        { label: t('projects'), href: '/content/projects', icon: FolderOpen },
+        { label: t('mediaLibrary'), href: '/content/media', icon: Library },
+        { label: t('scripts'), href: '/content/scripts', icon: FileText },
+        { label: t('templates'), href: '/content/templates', icon: Layers },
+        { label: t('calendar'), href: '/content/calendar', icon: Calendar },
+      ],
+    },
+    {
+      title: t('social'),
+      items: [
+        { label: t('connectedApps'), href: '/social/accounts', icon: Share2 },
+        { label: t('posts'), href: '/social/posts', icon: LayoutDashboard },
+        { label: t('scheduler'), href: '/social/scheduler', icon: CalendarDays },
+        { label: t('analytics'), href: '/social/analytics', icon: BarChart3 },
+      ],
+    },
+    {
+      title: t('ai'),
+      items: [
+        { label: t('aiAssistant'), href: '/ai/assistant', icon: Brain },
+        { label: t('contentIdeas'), href: '/ai/ideas', icon: Lightbulb },
+        { label: t('contentPlanner'), href: '/ai/planner', icon: CalendarDays },
+        { label: t('creatorVoice'), href: '/ai/brand', icon: Palette },
+        { label: t('repurpose'), href: '/ai/repurpose', icon: Repeat2 },
+      ],
+    },
+    {
+      title: t('settings'),
+      items: [
+        { label: t('profile'), href: '/settings/profile', icon: User2 },
+        { label: t('security'), href: '/settings/security', icon: Shield },
+        { label: t('billingCredits'), href: '/settings/billing', icon: CreditCard },
+        { label: t('notifications'), href: '/settings/notifications', icon: Bell },
+      ],
+    },
+  ];
+
+  const adminSection: NavSection = {
+    title: t('admin'),
+    items: [
+      { label: t('users'), href: '/admin/users', icon: Users },
+      { label: t('organizations'), href: '/admin/organizations', icon: Building2 },
+      { label: t('aiProviders'), href: '/admin/ai/providers', icon: Cpu },
+      { label: t('aiModels'), href: '/admin/ai/models', icon: Brain },
+      { label: t('jobs'), href: '/admin/jobs', icon: Activity },
+      { label: t('costs'), href: '/admin/ai/costs', icon: Receipt },
+      { label: t('systemHealth'), href: '/admin/health', icon: Server },
+    ],
+  };
+
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const currentPlan = user?.plan ?? 'Starter';
   const maxCredits = currentPlan === 'Pro' ? 50000 : currentPlan === 'Creator' ? 10000 : 1000;
 
-  const allSections = isAdmin ? [...navSections, adminSection] : navSections;
+  // Declutter sidebar if Admin View is active
+  const baseSections = viewMode === 'admin' 
+    ? navSections.filter(s => s.title === '' || s.title === 'SETTINGS')
+    : navSections;
+
+  const allSections = isAdmin && viewMode === 'admin' ? [...baseSections, adminSection] : baseSections;
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -142,7 +151,7 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
                   exit={{ opacity: 0, width: 0 }}
                   className="font-bold text-sm gradient-text whitespace-nowrap overflow-hidden"
                 >
-                  AI Content OS
+                  {t('appName')}
                 </motion.span>
               )}
             </AnimatePresence>
@@ -169,7 +178,7 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Zap className="w-3 h-3 text-primary" />
-                  <span className="text-xs text-muted-foreground">Credits</span>
+                  <span className="text-xs text-muted-foreground">{t('credits')}</span>
                 </div>
                 <span className="text-xs font-bold text-primary">{user?.credits?.toLocaleString() ?? 0}</span>
               </div>
@@ -226,12 +235,12 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
                       )}
                     </AnimatePresence>
                     {!collapsed && item.isNew && (
-                      <Badge className="text-[9px] py-0 px-1 bg-primary/20 border-primary/30 text-primary ml-auto">
-                        New
+                      <Badge className="text-[9px] py-0 px-1 bg-primary/20 border-primary/30 text-primary ms-auto">
+                        {t('new')}
                       </Badge>
                     )}
                     {!collapsed && item.badge && (
-                      <Badge className="text-[9px] py-0 px-1.5 bg-muted border-0 ml-auto">
+                      <Badge className="text-[9px] py-0 px-1.5 bg-muted border-0 ms-auto">
                         {item.badge}
                       </Badge>
                     )}
@@ -245,7 +254,7 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
                       <TooltipContent side="right" className="flex items-center gap-2">
                         {item.label}
                         {item.isNew && (
-                          <Badge className="text-[9px] py-0 px-1 bg-primary/20 text-primary">New</Badge>
+                          <Badge className="text-[9px] py-0 px-1 bg-primary/20 text-primary">{t('new')}</Badge>
                         )}
                       </TooltipContent>
                     </Tooltip>
@@ -269,7 +278,7 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
                   </div>
                 </div>
               </TooltipTrigger>
-              <TooltipContent side="right">{user?.name ?? 'User'}</TooltipContent>
+              <TooltipContent side="right">{user?.name ?? t('user')}</TooltipContent>
             </Tooltip>
           ) : (
             <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer group overflow-hidden">
@@ -277,7 +286,7 @@ export function DashboardSidebar({ collapsed, onToggle }: SidebarProps) {
                 {user?.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
               <div className="flex-1 min-w-0 overflow-hidden">
-                <div className="text-sm font-medium truncate leading-tight">{user?.name ?? 'User'}</div>
+                <div className="text-sm font-medium truncate leading-tight">{user?.name ?? t('user')}</div>
                 {user?.email && (
                   <div className="text-xs text-muted-foreground truncate leading-tight mt-0.5">{user.email}</div>
                 )}

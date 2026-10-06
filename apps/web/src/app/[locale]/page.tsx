@@ -5,10 +5,12 @@ import Link from 'next/link';
 import {
   Sparkles, Video, Mic, Image as ImageIcon, Share2, BarChart3,
   Repeat2, Calendar, Brain, Play, ArrowRight, Check, Star,
-  Zap, Globe, Lock, ChevronDown, Youtube, Instagram, Music2
+  Zap, Globe, Lock, ChevronDown, Youtube, Instagram, Music2,
+  Facebook, Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useTranslations } from 'next-intl';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -20,6 +22,8 @@ const staggerChildren = {
 };
 
 export default function LandingPage() {
+  const t = useTranslations('LandingPage');
+
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* ── Navbar ── */}
@@ -30,28 +34,28 @@ export default function LandingPage() {
               <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-lg gradient-text">AI Content OS</span>
+              <span className="font-bold text-lg gradient-text" dir="ltr">AI Content OS</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              {['Features', 'Pricing', 'Use Cases', 'Blog'].map((item) => (
+              {['features', 'pricing', 'useCases', 'blog'].map((item) => (
                 <a
                   key={item}
-                  href={`#${item.toLowerCase().replace(' ', '-')}`}
+                  href={`#${item}`}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {item}
+                  {t(`navbar.${item}`)}
                 </a>
               ))}
             </div>
             <div className="flex items-center gap-3">
               <Link href="/login">
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                  Sign in
+                  {t('navbar.signIn')}
                 </Button>
               </Link>
               <Link href="/register">
                 <Button size="sm" className="bg-brand-gradient hover:opacity-90 text-white border-0">
-                  Get Started Free
+                  {t('navbar.getStartedFree')}
                 </Button>
               </Link>
             </div>
@@ -77,8 +81,8 @@ export default function LandingPage() {
             <motion.div variants={fadeIn} className="flex justify-center">
               <Badge className="px-4 py-1.5 text-sm bg-primary/10 border border-primary/30 text-primary gap-2">
                 <Sparkles className="w-3.5 h-3.5" />
-                AI-Powered Content Creation Platform
-                <ArrowRight className="w-3.5 h-3.5" />
+                {t('hero.badge')}
+                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
               </Badge>
             </motion.div>
 
@@ -87,8 +91,8 @@ export default function LandingPage() {
               variants={fadeIn}
               className="display-xl max-w-4xl mx-auto"
             >
-              Create. Edit. Publish.{' '}
-              <span className="gradient-text">Powered by AI.</span>
+              {t('hero.title1')}{' '}
+              <span className="gradient-text">{t('hero.title2')}</span>
             </motion.h1>
 
             {/* Sub-headline */}
@@ -96,8 +100,7 @@ export default function LandingPage() {
               variants={fadeIn}
               className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
             >
-              The all-in-one AI content operating system for creators, marketers, and brands.
-              Generate videos, scripts, voice, and images — then publish everywhere in seconds.
+              {t('hero.subtitle')}
             </motion.p>
 
             {/* CTAs */}
@@ -107,9 +110,9 @@ export default function LandingPage() {
                   size="lg"
                   className="bg-brand-gradient text-white border-0 px-8 py-6 text-base font-semibold hover:opacity-90 glow-primary transition-all"
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Create Your First AI Video
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  <Sparkles className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+                  {t('hero.ctaPrimary')}
+                  <ArrowRight className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 rtl:rotate-180" />
                 </Button>
               </Link>
               <Link href="/dashboard">
@@ -118,8 +121,8 @@ export default function LandingPage() {
                   size="lg"
                   className="px-8 py-6 text-base border-white/10 hover:bg-white/5 hover:border-white/20"
                 >
-                  <Play className="w-4 h-4 mr-2" />
-                  Explore the Platform
+                  <Play className="w-4 h-4 mr-2 rtl:ml-2 rtl:mr-0" />
+                  {t('hero.ctaSecondary')}
                 </Button>
               </Link>
             </motion.div>
@@ -131,15 +134,15 @@ export default function LandingPage() {
             >
               <div className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 text-emerald-400" />
-                No credit card required
+                {t('hero.proof1')}
               </div>
               <div className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 text-emerald-400" />
-                100 free AI credits
+                {t('hero.proof2')}
               </div>
               <div className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 text-emerald-400" />
-                Cancel anytime
+                {t('hero.proof3')}
               </div>
             </motion.div>
 
@@ -288,8 +291,8 @@ export default function LandingPage() {
               { name: 'YouTube', icon: Youtube, color: '#ff0000' },
               { name: 'Instagram', icon: Instagram, color: '#e1306c' },
               { name: 'TikTok', icon: Music2, color: '#69c9d0' },
-              { name: 'Facebook', icon: Globe, color: '#1877f2' },
-              { name: 'Telegram', icon: Share2, color: '#0088cc' },
+              { name: 'Facebook', icon: Facebook, color: '#1877f2' },
+              { name: 'Telegram', icon: Send, color: '#0088cc' },
             ].map((platform) => (
               <div
                 key={platform.name}
