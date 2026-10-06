@@ -13,15 +13,19 @@ interface User {
   plan?: string;
 }
 
+export type ViewMode = 'creator' | 'admin';
+
 interface AuthStore {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  viewMode: ViewMode;
 
   setUser: (user: User | null) => void;
   setAccessToken: (token: string | null) => void;
   setLoading: (loading: boolean) => void;
+  setViewMode: (mode: ViewMode) => void;
   login: (user: User, token: string) => void;
   logout: () => void;
 }
@@ -33,10 +37,12 @@ export const useAuthStore = create<AuthStore>()(
       accessToken: null,
       isAuthenticated: false,
       isLoading: false,
+      viewMode: 'creator',
 
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
+      setUser: (user) => set({ user, isAuthenticated: !!user, viewMode: user?.role === 'SUPER_ADMIN' ? 'admin' : 'creator' }),
       setAccessToken: (token) => set({ accessToken: token }),
       setLoading: (loading) => set({ isLoading: loading }),
+      setViewMode: (mode) => set({ viewMode: mode }),
 
       login: (user, token) =>
         set({ user, accessToken: token, isAuthenticated: true, isLoading: false }),
@@ -51,6 +57,7 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
+        viewMode: state.viewMode,
       }),
     },
   ),

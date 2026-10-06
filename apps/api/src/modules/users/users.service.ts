@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -61,5 +62,90 @@ export class UsersService {
       select: { organizationId: true },
     });
     return membership?.organizationId ?? null;
+  }
+
+  async getAllUsers() {
+    return this.prisma.user.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        isSuspended: true,
+        creditWallet: { select: { balance: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async toggleSuspend(adminId: string, targetUserId: string, suspend: boolean) {
+    if (adminId === targetUserId) {
+      throw new Error('Cannot suspend yourself');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!user) throw new NotFoundException('User not found');
+    
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        isSuspended: suspend,
+        suspendedAt: suspend ? new Date() : null,
+      },
+      select: { id: true, isSuspended: true, suspendedAt: true }
+    });
+  }
+
+  async changeRole(adminId: string, targetUserId: string, newRole: UserRole) {
+    if (adminId === targetUserId) {
+      throw new Error('Cannot change your own role');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!user) throw new NotFoundException('User not found');
+    
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { role: newRole },
+      select: { id: true, role: true }
+    });
+  }
+
+  async manageCredits(adminId: string, targetUserId: string, amount: number) {
+    if (amount === 0) return;
+    
+    return this.prisma.$transaction(async (tx) => {
+      let wallet = await tx.creditWallet.findUnique({ where: { userId: targetUserId } });
+      if (!wallet) {
+        // If the user doesn't have a wallet, create one
+        wallet = await tx.creditWallet.create({
+          data: {
+            userId: targetUserId,
+            balance: 0,
+          }
+        });
+      }
+
+      const newBalance = wallet.balance + amount;
+      
+      const updatedWallet = await tx.creditWallet.update({
+        where: { id: wallet.id },
+        data: {
+          balance: newBalance,
+        }
+      });
+
+      await tx.creditTransaction.create({
+        data: {
+          walletId: wallet.id,
+          type: 'ADJUSTMENT',
+          amount,
+          balance: newBalance,
+          description: `Admin adjustment by ${adminId}`,
+        }
+      });
+
+      return updatedWallet;
+    });
   }
 }
