@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  AlertCircle, Clock, Download, Loader2, MonitorPlay, Smartphone, Sparkles, Square,
+  AlertCircle, Clock, Download, Loader2, MonitorPlay, Smartphone, Sparkles,
   Video,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -157,7 +157,6 @@ export default function CreateVideoPage() {
               {[
                 { value: '16:9', label: 'Landscape', icon: MonitorPlay },
                 { value: '9:16', label: 'Portrait', icon: Smartphone },
-                { value: '1:1', label: 'Square', icon: Square },
               ].map(({ value, label, icon: Icon }) => (
                 <Button key={value} variant={aspectRatio === value ? 'default' : 'outline'} size="sm" onClick={() => setAspectRatio(value)} className="gap-2">
                   <Icon className="h-4 w-4" /> {label}
@@ -189,7 +188,7 @@ export default function CreateVideoPage() {
               <Label htmlFor="duration">Duration</Label>
               <span className="text-sm font-semibold text-primary">{duration}s</span>
             </div>
-            <input id="duration" type="range" min="1" max="10" value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="w-full accent-primary" />
+            <input id="duration" type="range" min="5" max="10" step="5" value={duration} onChange={(event) => setDuration(Number(event.target.value))} className="w-full accent-primary" />
           </div>
         </aside>
       </div>

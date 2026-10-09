@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
 import { QUEUE_NAMES } from './queues/queue-names';
 import { VideoGenerationProcessor } from './processors/video-generation.processor';
+import { RunwayVideoClient } from './processors/runway-video.client';
 import { VideoRenderingProcessor } from './processors/video-rendering.processor';
 import {
   AudioGenerationProcessor,
@@ -16,6 +17,7 @@ import { SocialPublishingProcessor } from './processors/social-publishing.proces
 import { AnalyticsSyncProcessor } from './processors/analytics-sync.processor';
 import { ContentRepurposingProcessor } from './processors/content-repurposing.processor';
 import { NotificationsProcessor } from './processors/notifications.processor';
+import { PrismaModule } from './prisma/prisma.module';
 
 const queueRegistrations = Object.values(QUEUE_NAMES).map((name) => ({
   name,
@@ -51,9 +53,11 @@ const queueRegistrations = Object.values(QUEUE_NAMES).map((name) => ({
       },
     }),
     BullModule.registerQueue(...queueRegistrations),
+    PrismaModule,
   ],
   providers: [
     VideoGenerationProcessor,
+    RunwayVideoClient,
     VideoRenderingProcessor,
     AudioGenerationProcessor,
     ImageGenerationProcessor,

@@ -60,8 +60,9 @@ This project is structured as a Monorepo using [Turborepo](https://turbo.build/r
    ```
    - **Frontend:** http://localhost:3000
    - **Backend API:** http://localhost:3001
-   - **Worker:** consumes BullMQ queues registered in `apps/worker`. Queue processors are scaffolds and report an unrecoverable job failure until their provider/business logic is implemented.
+   - **Worker:** consumes BullMQ queues registered in `apps/worker`. Video generation is submitted to Runway and polled asynchronously; the remaining queue processors are explicit scaffolds until their provider/business logic is implemented. Set `RUNWAYML_API_KEY` to enable video jobs.
 
+   Configure `RUNWAYML_API_KEY` in `.env.local` before submitting video jobs.
    To run just the worker locally (with Redis available):
    ```bash
    pnpm --filter @ai-content-os/worker dev

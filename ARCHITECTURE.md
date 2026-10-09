@@ -521,24 +521,29 @@ provider and dashboard before validating a complete user workflow.
 
 ### Current implementation notes
 
-- `apps/worker` now provides a NestJS BullMQ consumer, registers all 11 queues
-  from this architecture, and has explicit processor scaffolds. These processors
-  intentionally fail jobs as unrecoverable until their provider/business logic
-  is implemented; video generation is not yet a working generation pipeline.
+- `apps/worker` provides a NestJS BullMQ consumer and registers all 11 queues.
+  The API enqueues charged video requests; the video worker submits them to
+  Runway, polls asynchronously, persists status/output on the Video record, and
+  refunds credits once on terminal failure. The remaining processors are explicit
+  unrecoverable scaffolds until their provider/business logic is implemented.
+- Video output currently stores the provider's URL rather than copying the media
+  into S3-compatible storage. Provider/model routing, AI cost telemetry, and an
+  outbox for atomic DB-to-Redis enqueueing remain launch risks.
 - The API has AI provider adapters and core modules, but social OAuth currently
   reports that credentials are not configured, and publishing only records a
   scheduled post. These are integration seams, not completed provider workflows.
 - Stripe dependencies and schema fields exist, but there is no billing module
-  yet. Likewise, Bull/BullMQ dependencies do not constitute a running queue:
-  select one queue library and use it consistently before implementing workers.
+  yet. BullMQ is wired for video generation, but the remaining queues still need
+  producers and working processors.
 - The API already enables Helmet, request validation, and non-production
   Swagger. CORS currently includes localhost even when `FRONTEND_URL` is set;
   remove development origins from production. A Redis-backed rate limiter is
   not wired into the application.
 - English/Arabic locale routing and Arabic document direction are present.
   Full RTL behavior still needs component-level verification and tests.
-- Package scripts provide test commands, but no Jest spec files or GitHub
-  Actions workflows were found in the application packages/repository.
+- Focused API video-submission and worker/provider tests now exist, but coverage
+  of the rest of the application is incomplete and no GitHub Actions workflows
+  were found in the repository.
 - `docker-compose.yml` is a local-development setup with development credentials
   and should not be used as a production deployment configuration.
 
@@ -548,9 +553,9 @@ provider and dashboard before validating a complete user workflow.
 | --- | --- | --- | --- |
 | P0 | Release baseline | Choose the first supported product workflow, deployment target, and production domains. Add pull-request CI for lint, typecheck, build, and existing tests; add focused tests for auth, organization boundaries, and configuration. | A clean checkout can pass CI without production secrets; builds and migrations are reproducible; production configuration fails fast when required secrets or origins are missing. |
 | P1 | Security and observability baseline | Make CORS environment-specific; wire Redis-backed limits with stricter AI/auth budgets; verify webhook signatures, encrypt provider tokens, audit organization scoping and uploads. Add structured logs, request correlation, error reporting (for example Sentry), and health/readiness checks. | Production origins are explicit; limits work across API replicas; sensitive credentials are never logged or stored in plaintext; errors can be traced to a request and health checks reflect database/Redis availability. |
-| P2 | Background processing foundation | BullMQ is selected and the worker/queue consumer scaffold is in place. Add shared job contracts, producer wiring, real processors, idempotency, bounded retries/backoff, stalled-job handling, failure retention, concurrency controls, and progress reporting. | Compose can build and run API plus worker; integration tests prove enqueue/process/retry/failure behavior and duplicate delivery does not duplicate side effects. |
+| P2 | Background processing foundation | BullMQ, shared video job contracts, API video producer, Redis worker, and a Runway video processor are in place. Add producers/processors for the remaining queues, media persistence in S3, an outbox or equivalent enqueue consistency, bounded retries/backoff, failure retention, concurrency controls, and operational progress reporting. | Compose can build and run API plus worker; integration tests prove enqueue/process/retry/failure behavior and duplicate delivery does not duplicate side effects. |
 | P3 | Billing and entitlement controls | Implement plans, subscriptions, Stripe checkout/portal/webhooks, and an append-only credit ledger. Make webhook handling idempotent and define reservation, charge, refund, and failure semantics before connecting paid AI calls. | Replayed/out-of-order webhooks do not duplicate entitlement or credit changes; each billable action has an auditable ledger trail and cannot overspend a wallet. |
-| P4 | First AI production workflow | Deliver one end-to-end workflow (recommend script generation first): authenticated request, provider selection/fallback, queued execution where appropriate, usage/cost tracking, credit enforcement, persisted result, and user-visible status. Keep provider keys server-side and apply cost-aware quotas. | Contract/integration tests cover success, timeout, provider failure, retry, cancellation, and credit reconciliation; measured usage is recorded for every completed or failed billable request. |
+| P4 | First AI production workflow | The authenticated video workflow now has queued execution, credit enforcement/refunds, persisted result/status, and user-visible polling. Add model routing/fallback, AI request/cost tracking, durable S3 output, cancellation, and equivalent end-to-end coverage for text generation. Keep provider keys server-side and apply cost-aware quotas. | Contract/integration tests cover success, timeout, provider failure, retry, cancellation, and credit reconciliation; measured usage is recorded for every completed or failed billable request. |
 | P5 | Social publishing MVP | Implement one platform end-to-end before adding more: OAuth state/CSRF protection, encrypted refreshable tokens, permission handling, scheduling, worker publishing, idempotency, retry policy, and platform result persistence. | A scheduled post can be created, published, verified, retried safely, and disconnected; token expiry and provider rejection have explicit user-visible states. |
 | P6 | Operations and admin | Add role-protected admin workflows for user/org support, job inspection/retry, feature flags, and AI cost visibility. Add audit trails and operational dashboards; introduce deeper APM/database tracing based on observed bottlenecks. | Privileged actions are authorization-tested and audited; operators can investigate failed jobs and unexpected spend without accessing raw secrets. |
 | P7 | Production launch gates | Add production images and deployment automation for the selected host; configure secret-manager integration, migrations/rollback strategy, backups, alerts, load/failure tests, accessibility, and English/Arabic RTL regression coverage. | Staging deploy and rollback are rehearsed; backup restore is verified; SLO/alert ownership is defined; load and failure tests meet agreed targets; key Arabic routes pass RTL visual and interaction checks. |

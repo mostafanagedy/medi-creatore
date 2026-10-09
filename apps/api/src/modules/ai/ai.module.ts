@@ -11,9 +11,40 @@ import { MockAIProvider } from './providers/mock.provider';
 import { OmnirouteProvider } from './providers/omniroute.provider';
 import { UsersModule } from '../users/users.module';
 import { CreditsModule } from '../credits/credits.module';
+import { BullModule } from '@nestjs/bullmq';
+import Redis from 'ioredis';
+import { VIDEO_GENERATION_QUEUE } from './ai-queue.constants';
 
 @Module({
-  imports: [UsersModule, CreditsModule],
+  imports: [
+    UsersModule,
+    CreditsModule,
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        const connection = redisUrl
+          ? new Redis(redisUrl, { maxRetriesPerRequest: null })
+          : new Redis({
+              host: config.get<string>('REDIS_HOST', 'localhost'),
+              port: config.get<number>('REDIS_PORT', 6379),
+              password: config.get<string>('REDIS_PASSWORD'),
+              db: config.get<number>('REDIS_DB', 0),
+              maxRetriesPerRequest: null,
+            });
+        return { connection };
+      },
+    }),
+    BullModule.registerQueue({
+      name: VIDEO_GENERATION_QUEUE,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1_000 },
+        removeOnComplete: { age: 86_400, count: 1_000 },
+        removeOnFail: false,
+      },
+    }),
+  ],
   controllers: [AIController],
   providers: [
     AIGatewayService,

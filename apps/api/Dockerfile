@@ -48,6 +48,7 @@ CMD ["pnpm", "--filter", "@ai-content-os/api", "dev"]
 # ── build: generate Prisma client + compile TypeScript ───────
 FROM deps AS build
 COPY packages/database packages/database
+COPY packages/types packages/types
 COPY apps/api apps/api
 RUN pnpm --filter @ai-content-os/database db:generate \
  && pnpm --filter @ai-content-os/api build

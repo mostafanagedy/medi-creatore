@@ -12,9 +12,13 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/worker/package.json apps/worker/
+COPY packages/types/package.json packages/types/
+COPY packages/database/package.json packages/database/
+COPY packages/database/prisma packages/database/prisma
 COPY packages/tsconfig/ packages/tsconfig/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir /pnpm/store --filter @ai-content-os/worker...
+RUN pnpm --filter @ai-content-os/worker exec prisma generate --schema ../../packages/database/prisma/schema.prisma
 
 FROM deps AS development
 COPY . .
@@ -23,6 +27,7 @@ CMD ["pnpm", "--filter", "@ai-content-os/worker", "dev"]
 
 FROM deps AS build
 COPY apps/worker apps/worker
+COPY packages/types packages/types
 RUN pnpm --filter @ai-content-os/worker build
 
 FROM build AS prune
