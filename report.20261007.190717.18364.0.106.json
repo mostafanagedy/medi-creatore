@@ -1,0 +1,149 @@
+
+{
+  "header": {
+    "reportVersion": 5,
+    "event": "Entering the V8 API without proper locking in place",
+    "trigger": "FatalError",
+    "filename": "report.20261007.190717.18364.0.106.json",
+    "dumpEventTime": "2026-10-07T19:07:17Z",
+    "dumpEventTimeStamp": "1791389237382",
+    "processId": 18364,
+    "threadId": null,
+    "cwd": "H:\\medi-creatore",
+    "commandLine": [
+      "C:\\Users\\elmnshawy\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe",
+      "--no-warnings",
+      "--report-on-fatalerror",
+      "--optimize-for-size",
+      "--expose-gc",
+      "--no-maglev",
+      "--no-sparkplug",
+      "C:\\Users\\elmnshawy\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe"
+    ],
+    "nodejsVersion": "v24.20.0",
+    "wordSize": 64,
+    "arch": "x64",
+    "platform": "win32",
+    "componentVersions": {
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "node": "24.20.0",
+      "openssl": "3.5.7",
+      "simdjson": "4.6.6",
+      "simdutf": "6.4.0",
+      "sqlite": "3.53.4",
+      "tz": "2026c",
+      "undici": "7.29.0",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.17-node.53",
+      "zlib": "1.3.2.1-motley-42c2f19",
+      "zstd": "1.5.7"
+    },
+    "release": {
+      "name": "node",
+      "lts": "Krypton",
+      "headersUrl": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0-headers.tar.gz",
+      "sourceUrl": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0.tar.gz",
+      "libUrl": "https://nodejs.org/download/release/v24.20.0/win-x64/node.lib"
+    },
+    "osName": "Windows_NT",
+    "osRelease": "10.0.26200",
+    "osVersion": "Windows 11 Pro",
+    "osMachine": "x86_64",
+    "cpus": [
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 5845921,
+        "nice": 0,
+        "sys": 7960765,
+        "idle": 10778359,
+        "irq": 547578
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 6145218,
+        "nice": 0,
+        "sys": 6446453,
+        "idle": 11993281,
+        "irq": 271281
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 7320968,
+        "nice": 0,
+        "sys": 7158343,
+        "idle": 10105640,
+        "irq": 224078
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 7042031,
+        "nice": 0,
+        "sys": 6560359,
+        "idle": 10982562,
+        "irq": 194687
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 5520687,
+        "nice": 0,
+        "sys": 8698718,
+        "idle": 10365546,
+        "irq": 256078
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 5391359,
+        "nice": 0,
+        "sys": 7290656,
+        "idle": 11902937,
+        "irq": 232937
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 6166734,
+        "nice": 0,
+        "sys": 7934453,
+        "idle": 10483765,
+        "irq": 225828
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 6239078,
+        "nice": 0,
+        "sys": 6516078,
+        "idle": 11829796,
+        "irq": 190687
+      }
+    ],
+    "networkInterfaces": [
+      {
+        "name": "vEthernet (Default Switch)",
+        "internal": false,
+        "mac": "00:15:5d:e2:f7:64",
+        "address": "fe80::cbe:d3ae:dc6c:8870",
+        "netmask": 

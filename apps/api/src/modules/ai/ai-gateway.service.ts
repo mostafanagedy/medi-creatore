@@ -218,6 +218,17 @@ export class AIGatewayService {
     );
   }
 
+  async getVideoStatus(taskId: string, options: GatewayRequestOptions) {
+    const { provider } = await this.selectModel(AITaskType.VIDEO_GENERATION, options);
+    const videoProvider = this.providers.video.get(provider);
+
+    if (!videoProvider?.isAvailable) {
+      throw new ServiceUnavailableException('Video status is temporarily unavailable.');
+    }
+
+    return videoProvider.getVideoStatus(taskId);
+  }
+
   // ──────────────────────────────────────────────────────────
   // Voice Generation
   // ──────────────────────────────────────────────────────────
@@ -479,6 +490,81 @@ export class AIGatewayService {
       avatar: Array.from(this.providers.avatar.keys()),
       transcription: Array.from(this.providers.transcription.keys()),
       embedding: Array.from(this.providers.embedding.keys()),
+    };
+  }
+
+  listConfiguredModels() {
+    return this.prisma.aIModel.findMany({
+      include: { provider: { select: { name: true, displayName: true, status: true } } },
+      orderBy: [{ taskType: 'asc' }, { tier: 'asc' }, { displayName: 'asc' }],
+    });
+  }
+
+  listRecentRequests() {
+    return this.prisma.aIRequest.findMany({
+      take: 100,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        taskType: true,
+        status: true,
+        durationMs: true,
+        creditsConsumed: true,
+        estimatedCostUsd: true,
+        actualCostUsd: true,
+        errorMessage: true,
+        createdAt: true,
+        completedAt: true,
+        provider: { select: { displayName: true } },
+        model: { select: { displayName: true } },
+      },
+    });
+  }
+
+  async getUsageSummary() {
+    const [totals, byProvider, byTask] = await Promise.all([
+      this.prisma.aIRequest.aggregate({
+        _count: { _all: true },
+        _sum: { actualCostUsd: true, estimatedCostUsd: true, creditsConsumed: true },
+      }),
+      this.prisma.aIRequest.groupBy({
+        by: ['providerId'],
+        _count: { _all: true },
+        _sum: { actualCostUsd: true, estimatedCostUsd: true },
+      }),
+      this.prisma.aIRequest.groupBy({
+        by: ['taskType'],
+        _count: { _all: true },
+        _sum: { actualCostUsd: true, estimatedCostUsd: true, creditsConsumed: true },
+      }),
+    ]);
+    const providerIds = byProvider.map((row) => row.providerId);
+    const providers = await this.prisma.aIProvider.findMany({
+      where: { id: { in: providerIds } },
+      select: { id: true, displayName: true },
+    });
+    const providerNames = new Map(providers.map((provider) => [provider.id, provider.displayName]));
+
+    return {
+      totals: {
+        requests: totals._count._all,
+        actualCostUsd: totals._sum.actualCostUsd ?? 0,
+        estimatedCostUsd: totals._sum.estimatedCostUsd ?? 0,
+        creditsConsumed: totals._sum.creditsConsumed ?? 0,
+      },
+      providers: byProvider.map((row) => ({
+        name: providerNames.get(row.providerId) ?? row.providerId,
+        requests: row._count._all,
+        actualCostUsd: row._sum.actualCostUsd ?? 0,
+        estimatedCostUsd: row._sum.estimatedCostUsd ?? 0,
+      })),
+      tasks: byTask.map((row) => ({
+        taskType: row.taskType,
+        requests: row._count._all,
+        actualCostUsd: row._sum.actualCostUsd ?? 0,
+        estimatedCostUsd: row._sum.estimatedCostUsd ?? 0,
+        creditsConsumed: row._sum.creditsConsumed ?? 0,
+      })),
     };
   }
 }

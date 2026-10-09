@@ -1,82 +1,68 @@
-import { Server, Youtube, Twitter, Instagram, Video } from 'lucide-react';
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { Loader2, Server, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link } from '@/i18n/routing';
+import apiClient from '@/lib/api-client';
+
+type SocialAccount = { id: string; platform: string; displayName?: string | null; username?: string | null; isExpired: boolean };
+
+const supportedPlatforms = [
+  { id: 'YOUTUBE', name: 'YouTube', description: 'Publish videos and Shorts to a YouTube channel.' },
+  { id: 'TIKTOK', name: 'TikTok', description: 'Plan and publish short-form videos.' },
+  { id: 'INSTAGRAM', name: 'Instagram', description: 'Manage Reels and posts for a professional account.' },
+  { id: 'FACEBOOK', name: 'Facebook', description: 'Manage content for a Facebook Page.' },
+  { id: 'TWITTER', name: 'X (Twitter)', description: 'Share text, images, and video on X.' },
+];
 
 export default function IntegrationsSettingsPage() {
-  const integrations = [
-    {
-      name: 'YouTube',
-      description: 'Automatically publish generated videos and shorts directly to your YouTube channel.',
-      icon: Youtube,
-      connected: true,
-      color: 'text-red-500',
-    },
-    {
-      name: 'TikTok',
-      description: 'Schedule and post TikTok videos with AI-generated captions and hashtags.',
-      icon: Video,
-      connected: false,
-      color: 'text-white',
-    },
-    {
-      name: 'Instagram',
-      description: 'Publish Reels and carousel posts directly to your Instagram Professional account.',
-      icon: Instagram,
-      connected: false,
-      color: 'text-pink-500',
-    },
-    {
-      name: 'X (Twitter)',
-      description: 'Share AI-generated threads, images, and videos seamlessly on X.',
-      icon: Twitter,
-      connected: false,
-      color: 'text-blue-400',
-    },
-  ];
+  const accountsQuery = useQuery<SocialAccount[]>({
+    queryKey: ['social-accounts'],
+    queryFn: async () => (await apiClient.get('/social/accounts')).data.data,
+  });
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Server className="w-8 h-8 text-primary" />
+    <div className="max-w-5xl space-y-6">
+      <header>
+        <h1 className="flex items-center gap-2 text-3xl font-bold">
+          <Server className="h-8 w-8 text-primary" />
           Integrations
         </h1>
-        <p className="text-muted-foreground mt-2">
-          Connect third-party apps, social media accounts, and external services for automated publishing.
-        </p>
-      </div>
+        <p className="mt-2 text-muted-foreground">Review the social accounts connected to your workspace.</p>
+      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {integrations.map((app) => (
-          <div key={app.name} className="glass-card p-6 rounded-xl border border-white/10 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-background flex items-center justify-center border border-border">
-                  <app.icon className={`w-6 h-6 ${app.color}`} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">{app.name}</h3>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${app.connected ? 'bg-green-500/20 text-green-500' : 'bg-muted text-muted-foreground'}`}>
-                    {app.connected ? 'Connected' : 'Not Connected'}
+      {accountsQuery.isError && <p className="text-sm text-destructive">Could not load integrations: {accountsQuery.error.message}</p>}
+      {accountsQuery.isLoading ? (
+        <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {supportedPlatforms.map((platform) => {
+            const account = accountsQuery.data?.find((item) => item.platform === platform.id && !item.isExpired);
+            return (
+              <section key={platform.id} className="glass-card flex flex-col rounded-xl border border-white/10 p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">{platform.name}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{platform.description}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs ${account ? 'bg-emerald-500/10 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+                    {account ? 'Connected' : 'Not connected'}
                   </span>
                 </div>
-              </div>
-            </div>
-            
-            <p className="text-sm text-muted-foreground flex-1 mb-6">
-              {app.description}
-            </p>
-            
-            <div className="mt-auto">
-              <Button 
-                variant={app.connected ? 'outline' : 'default'} 
-                className={app.connected ? 'w-full text-destructive hover:text-destructive' : 'w-full bg-primary text-primary-foreground hover:bg-primary/90'}
-              >
-                {app.connected ? 'Disconnect' : 'Connect Account'}
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+                {account && <p className="mt-4 text-sm">{account.displayName ?? account.username ?? platform.name}</p>}
+                <Link href="/social/accounts" className="mt-5">
+                  <Button variant={account ? 'outline' : 'default'} className="w-full">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {account ? 'Manage account' : 'View connection options'}
+                  </Button>
+                </Link>
+              </section>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">Social OAuth credentials are configured by the server administrator.</p>
     </div>
   );
 }

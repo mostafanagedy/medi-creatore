@@ -507,6 +507,7 @@ async function main() {
     });
 
     console.log('✅ Demo user seeded (demo@ai-content-os.dev / Demo@123456)');
+
   }
 
   console.log('🎉 Database seed completed!');

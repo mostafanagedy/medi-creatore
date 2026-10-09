@@ -116,14 +116,12 @@ Like, share, and follow for more amazing content! [MOCK]
     await this.delay(800);
 
     return {
-      images: [
-        {
-          url: `https://placehold.co/${request.width ?? 1024}x${request.height ?? 1024}/1a1a2e/ffffff?text=MOCK+IMAGE`,
+      images: Array.from({ length: request.numberOfImages ?? 1 }, (_, index) => ({
+          url: `https://placehold.co/${request.width ?? 1024}x${request.height ?? 1024}/1a1a2e/ffffff?text=MOCK+IMAGE+${index + 1}`,
           width: request.width ?? 1024,
           height: request.height ?? 1024,
           revisedPrompt: `[MOCK] ${request.prompt}`,
-        },
-      ],
+        })),
       model: 'mock-image-v1',
       provider: this.providerName,
       durationMs: 800,

@@ -512,3 +512,54 @@ GET    /ready
 - Performance optimization
 - Accessibility audit
 - i18n (English + Arabic + RTL)
+
+## 12. Production Readiness Assessment and Execution Plan
+
+The architecture above describes the target system, not the current implementation.
+Use the following sequence to close the production gaps without building every
+provider and dashboard before validating a complete user workflow.
+
+### Current implementation notes
+
+- `apps/worker` now provides a NestJS BullMQ consumer, registers all 11 queues
+  from this architecture, and has explicit processor scaffolds. These processors
+  intentionally fail jobs as unrecoverable until their provider/business logic
+  is implemented; video generation is not yet a working generation pipeline.
+- The API has AI provider adapters and core modules, but social OAuth currently
+  reports that credentials are not configured, and publishing only records a
+  scheduled post. These are integration seams, not completed provider workflows.
+- Stripe dependencies and schema fields exist, but there is no billing module
+  yet. Likewise, Bull/BullMQ dependencies do not constitute a running queue:
+  select one queue library and use it consistently before implementing workers.
+- The API already enables Helmet, request validation, and non-production
+  Swagger. CORS currently includes localhost even when `FRONTEND_URL` is set;
+  remove development origins from production. A Redis-backed rate limiter is
+  not wired into the application.
+- English/Arabic locale routing and Arabic document direction are present.
+  Full RTL behavior still needs component-level verification and tests.
+- Package scripts provide test commands, but no Jest spec files or GitHub
+  Actions workflows were found in the application packages/repository.
+- `docker-compose.yml` is a local-development setup with development credentials
+  and should not be used as a production deployment configuration.
+
+### Ordered delivery plan
+
+| Priority | Stage | Scope and dependencies | Exit criteria |
+| --- | --- | --- | --- |
+| P0 | Release baseline | Choose the first supported product workflow, deployment target, and production domains. Add pull-request CI for lint, typecheck, build, and existing tests; add focused tests for auth, organization boundaries, and configuration. | A clean checkout can pass CI without production secrets; builds and migrations are reproducible; production configuration fails fast when required secrets or origins are missing. |
+| P1 | Security and observability baseline | Make CORS environment-specific; wire Redis-backed limits with stricter AI/auth budgets; verify webhook signatures, encrypt provider tokens, audit organization scoping and uploads. Add structured logs, request correlation, error reporting (for example Sentry), and health/readiness checks. | Production origins are explicit; limits work across API replicas; sensitive credentials are never logged or stored in plaintext; errors can be traced to a request and health checks reflect database/Redis availability. |
+| P2 | Background processing foundation | BullMQ is selected and the worker/queue consumer scaffold is in place. Add shared job contracts, producer wiring, real processors, idempotency, bounded retries/backoff, stalled-job handling, failure retention, concurrency controls, and progress reporting. | Compose can build and run API plus worker; integration tests prove enqueue/process/retry/failure behavior and duplicate delivery does not duplicate side effects. |
+| P3 | Billing and entitlement controls | Implement plans, subscriptions, Stripe checkout/portal/webhooks, and an append-only credit ledger. Make webhook handling idempotent and define reservation, charge, refund, and failure semantics before connecting paid AI calls. | Replayed/out-of-order webhooks do not duplicate entitlement or credit changes; each billable action has an auditable ledger trail and cannot overspend a wallet. |
+| P4 | First AI production workflow | Deliver one end-to-end workflow (recommend script generation first): authenticated request, provider selection/fallback, queued execution where appropriate, usage/cost tracking, credit enforcement, persisted result, and user-visible status. Keep provider keys server-side and apply cost-aware quotas. | Contract/integration tests cover success, timeout, provider failure, retry, cancellation, and credit reconciliation; measured usage is recorded for every completed or failed billable request. |
+| P5 | Social publishing MVP | Implement one platform end-to-end before adding more: OAuth state/CSRF protection, encrypted refreshable tokens, permission handling, scheduling, worker publishing, idempotency, retry policy, and platform result persistence. | A scheduled post can be created, published, verified, retried safely, and disconnected; token expiry and provider rejection have explicit user-visible states. |
+| P6 | Operations and admin | Add role-protected admin workflows for user/org support, job inspection/retry, feature flags, and AI cost visibility. Add audit trails and operational dashboards; introduce deeper APM/database tracing based on observed bottlenecks. | Privileged actions are authorization-tested and audited; operators can investigate failed jobs and unexpected spend without accessing raw secrets. |
+| P7 | Production launch gates | Add production images and deployment automation for the selected host; configure secret-manager integration, migrations/rollback strategy, backups, alerts, load/failure tests, accessibility, and English/Arabic RTL regression coverage. | Staging deploy and rollback are rehearsed; backup restore is verified; SLO/alert ownership is defined; load and failure tests meet agreed targets; key Arabic routes pass RTL visual and interaction checks. |
+
+### Scope control
+
+Treat provider breadth as follow-up work: launch with one validated AI workflow and
+one social platform, then add providers behind the established interfaces. Do not
+choose Kubernetes, AWS, or Vercel deployment details until the hosting target and
+operational constraints are agreed. Production launch should be gated on P0–P5;
+P6 and P7 provide the operator controls and final verification needed before
+general availability.

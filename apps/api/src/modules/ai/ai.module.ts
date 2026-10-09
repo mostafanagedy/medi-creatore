@@ -10,9 +10,10 @@ import { AnthropicProvider } from './providers/anthropic.provider';
 import { MockAIProvider } from './providers/mock.provider';
 import { OmnirouteProvider } from './providers/omniroute.provider';
 import { UsersModule } from '../users/users.module';
+import { CreditsModule } from '../credits/credits.module';
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, CreditsModule],
   controllers: [AIController],
   providers: [
     AIGatewayService,

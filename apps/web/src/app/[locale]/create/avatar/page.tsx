@@ -1,98 +1,143 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, UserSquare, Sparkles, AlertCircle } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, Loader2, Sparkles, UserSquare, Video } from 'lucide-react';
+import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { useDefaultOrganization } from '@/hooks/use-default-organization';
+import apiClient from '@/lib/api-client';
+import { Link } from '@/i18n/routing';
+
+type AvatarResult = {
+  videoUrl?: string;
+  taskId?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  provider: string;
+};
 
 export default function CreateAvatarPage() {
-  const [prompt, setPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { credits, isLoading: isProfileLoading } = useDefaultOrganization();
+  const [scriptText, setScriptText] = useState('');
+  const [language, setLanguage] = useState('en');
+  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [result, setResult] = useState<AvatarResult | null>(null);
 
-  const handleGenerate = async () => {
-    if (!prompt) return;
-    setIsGenerating(true);
-    // TODO: Connect to backend API
-    setTimeout(() => {
-      setResult('https://example.com/avatar.mp4'); // Mock result
-      setIsGenerating(false);
-    }, 2000);
-  };
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Basic frontend validation before sending to backend
-      if (file.size > 50 * 1024 * 1024) {
-        alert('File size exceeds 50MB limit. Upgrade your plan for larger limits.');
-        return;
-      }
-      setPrompt(file.name);
-    }
-  };
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post('/ai/avatar', {
+        scriptText: scriptText.trim(),
+        language,
+        aspectRatio,
+      });
+      return response.data.data as AvatarResult;
+    },
+    onSuccess: (generated) => {
+      setResult(generated);
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      toast.success(generated.status === 'completed' ? 'Avatar video is ready.' : 'Avatar job was submitted.');
+    },
+    onError: (error: { response?: { data?: { message?: string } }; message?: string }) => {
+      toast.error(error.response?.data?.message ?? error.message ?? 'Avatar generation failed.');
+    },
+  });
+
+  const hasCredits = credits >= 25;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <UserSquare className="w-8 h-8 text-primary" />
+        <h1 className="flex items-center gap-2 text-3xl font-bold">
+          <UserSquare className="h-8 w-8 text-primary" />
           AI Avatar Generator
         </h1>
-        <p className="text-muted-foreground mt-2">
-          Create talking avatars from text or audio.
-        </p>
+        <p className="mt-2 text-muted-foreground">Create a talking-avatar video from a script using an available avatar provider.</p>
       </div>
 
-      <div className="glass-card p-6 rounded-xl space-y-6 border border-white/10">
+      {!isProfileLoading && !hasCredits && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Insufficient credits</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>Avatar generation costs 25 credits; your balance is {credits.toLocaleString()}.</span>
+            <Link href="/settings/billing"><Button size="sm" variant="outline">View billing</Button></Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="glass-card space-y-6 rounded-xl border border-white/10 p-6">
         <div className="space-y-2">
-          <Label htmlFor="prompt">What should the avatar say? (Text or Audio/Video Upload)</Label>
-          <Input
-            id="prompt"
-            placeholder="Welcome to my channel..."
-            className="h-12 bg-background/50"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+          <Label htmlFor="avatar-script">Avatar script</Label>
+          <textarea
+            id="avatar-script"
+            placeholder="Welcome to my channel. Today, we'll explore..."
+            className="min-h-36 w-full resize-y rounded-md border border-input bg-background/50 px-3 py-2 text-sm"
+            value={scriptText}
+            onChange={(event) => setScriptText(event.target.value)}
+            maxLength={5000}
           />
+          <p className="text-right text-xs text-muted-foreground">{scriptText.length}/5000</p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="file-upload">Or upload an audio/video reference (optional)</Label>
-          <Input
-            id="file-upload"
-            type="file"
-            accept="image/*,video/*,audio/*"
-            className="bg-background/50 cursor-pointer"
-            onChange={handleFileChange}
-          />
-          <p className="text-xs text-muted-foreground">
-            Maximum file size depends on your plan (default 50MB). Files are securely processed.
-          </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="avatar-language">Language</Label>
+            <select id="avatar-language" value={language} onChange={(event) => setLanguage(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm">
+              <option value="en">English</option>
+              <option value="ar">Arabic</option>
+              <option value="fr">French</option>
+              <option value="es">Spanish</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="avatar-ratio">Video aspect ratio</Label>
+            <select id="avatar-ratio" value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm">
+              <option value="16:9">16:9 landscape</option>
+              <option value="9:16">9:16 portrait</option>
+              <option value="1:1">1:1 square</option>
+            </select>
+          </div>
         </div>
 
-        <Button 
-          onClick={handleGenerate} 
-          disabled={!prompt || isGenerating}
-          className="w-full sm:w-auto h-12 bg-brand-gradient hover:opacity-90 border-0"
+        <Button
+          onClick={() => generateMutation.mutate()}
+          disabled={!scriptText.trim() || generateMutation.isPending || isProfileLoading || !hasCredits}
+          className="h-12 w-full border-0 bg-brand-gradient hover:opacity-90 sm:w-auto"
         >
-          {isGenerating ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4 mr-2" />
-          )}
-          {isGenerating ? 'Generating...' : 'Generate Avatar'}
+          {generateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+          {generateMutation.isPending ? 'Submitting...' : 'Generate avatar · 25 credits'}
         </Button>
       </div>
 
-      {result && (
-        <Alert className="bg-primary/5 border-primary/20">
-          <AlertCircle className="h-4 w-4 text-primary" />
-          <AlertTitle>Generation Complete (Mock)</AlertTitle>
-          <AlertDescription>
-            Your avatar video has been generated! (Backend integration pending)
-          </AlertDescription>
+      {generateMutation.isError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Could not generate avatar video</AlertTitle>
+          <AlertDescription>Check your credits and confirm an avatar provider is configured.</AlertDescription>
         </Alert>
+      )}
+
+      {result && (
+        <section className="glass-card space-y-4 rounded-xl border border-white/10 p-6" aria-live="polite">
+          <div>
+            <h2 className="font-semibold">Avatar job: {result.status}</h2>
+            <p className="text-sm text-muted-foreground">Provider: {result.provider}</p>
+            {result.taskId && <p className="break-all text-xs text-muted-foreground">Job ID: {result.taskId}</p>}
+          </div>
+          {result.videoUrl ? (
+            <video controls src={result.videoUrl} className="max-h-[480px] w-full rounded-lg bg-black" />
+          ) : result.status === 'pending' || result.status === 'processing' ? (
+            <Alert>
+              <Video className="h-4 w-4" />
+              <AlertTitle>Video job accepted</AlertTitle>
+              <AlertDescription>The provider queued this job. This workspace does not yet expose avatar-job status updates.</AlertDescription>
+            </Alert>
+          ) : null}
+        </section>
       )}
     </div>
   );

@@ -37,6 +37,14 @@ export class OrganizationsService {
     });
   }
 
+  listAllForAdmin() {
+    return this.prisma.organization.findMany({
+      where: { deletedAt: null },
+      include: { _count: { select: { memberships: true, projects: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async create(userId: string, dto: CreateOrganizationDto) {
     const slug = dto.slug ?? this.slugify(dto.name);
     if (await this.prisma.organization.findUnique({ where: { slug } })) {

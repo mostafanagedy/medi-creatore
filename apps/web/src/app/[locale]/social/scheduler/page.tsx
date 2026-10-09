@@ -1,224 +1,209 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Video, Share2, Youtube, Facebook, Instagram, Twitter, Clock } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Loader2, Plus, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { apiClient } from '@/lib/api-client';
+import { Link } from '@/i18n/routing';
 
-interface ScheduledPost {
+type SocialAccount = { id: string; platform: string; displayName?: string; username?: string };
+type ScheduledPost = {
   id: string;
-  title: string;
-  platform: 'youtube' | 'facebook' | 'instagram' | 'tiktok' | 'twitter';
-  date: Date;
-  time: string;
-  status: 'scheduled' | 'published' | 'failed';
-  thumbnailUrl: string;
-}
+  caption?: string | null;
+  platform: string;
+  status: string;
+  scheduledAt?: string | null;
+  createdAt: string;
+  socialAccount?: { displayName?: string | null; username?: string | null };
+};
+
+const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function SchedulerPage() {
+  const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  // Mock data
-  const [posts] = useState<ScheduledPost[]>([
-    {
-      id: '1',
-      title: 'Top 5 AI Tools 2026',
-      platform: 'youtube',
-      date: new Date(),
-      time: '18:00',
-      status: 'scheduled',
-      thumbnailUrl: 'https://picsum.photos/seed/ai1/400/225',
+  const [showForm, setShowForm] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+
+  const accountsQuery = useQuery<SocialAccount[]>({
+    queryKey: ['social-accounts'],
+    queryFn: async () => (await apiClient.get('/social/accounts')).data.data,
+  });
+  const postsQuery = useQuery<ScheduledPost[]>({
+    queryKey: ['social-posts'],
+    queryFn: async () => (await apiClient.get('/social/posts')).data.data,
+  });
+
+  const scheduleMutation = useMutation({
+    mutationFn: async () => {
+      if (!accountId) throw new Error('Connect an account before scheduling a post.');
+      if (!scheduledAt || new Date(scheduledAt) <= new Date()) throw new Error('Choose a future date and time.');
+      const response = await apiClient.post('/social/publish', {
+        accountId,
+        caption: caption.trim(),
+        scheduledAt: new Date(scheduledAt).toISOString(),
+      });
+      return response.data.data as ScheduledPost;
     },
-    {
-      id: '2',
-      title: 'Behind the scenes at MediCreatore',
-      platform: 'instagram',
-      date: new Date(new Date().setDate(new Date().getDate() + 1)),
-      time: '14:30',
-      status: 'scheduled',
-      thumbnailUrl: 'https://picsum.photos/seed/ai2/300/400',
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['social-posts'] });
+      setCaption('');
+      setScheduledAt('');
+      setShowForm(false);
+      toast.success('Post added to the schedule.');
     },
-    {
-      id: '3',
-      title: 'How to automate your content',
-      platform: 'tiktok',
-      date: new Date(new Date().setDate(new Date().getDate() + 2)),
-      time: '20:00',
-      status: 'scheduled',
-      thumbnailUrl: 'https://picsum.photos/seed/ai3/300/400',
-    }
-  ]);
-
-  const getPlatformIcon = (platform: string) => {
-    switch (platform) {
-      case 'youtube': return <Youtube className="w-4 h-4 text-[#FF0000]" />;
-      case 'facebook': return <Facebook className="w-4 h-4 text-[#1877F2]" />;
-      case 'instagram': return <Instagram className="w-4 h-4 text-[#E4405F]" />;
-      case 'tiktok': return <Video className="w-4 h-4 text-white" />;
-      case 'twitter': return <Twitter className="w-4 h-4 text-[#1DA1F2]" />;
-      default: return <Share2 className="w-4 h-4" />;
-    }
-  };
-
-  const getDaysInMonth = (year: number, month: number) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (year: number, month: number) => {
-    return new Date(year, month, 1).getDay();
-  };
+    onError: (error: { response?: { data?: { message?: string } }; message?: string }) => {
+      toast.error(error.response?.data?.message ?? error.message ?? 'Could not schedule post.');
+    },
+  });
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
-  
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-
-  const renderCalendarDays = () => {
-    const days = [];
-    const today = new Date();
-
-    // Empty cells before the first day
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-32 border border-white/5 bg-background/20 rounded-md"></div>);
-    }
-
-    // Actual days
-    for (let i = 1; i <= daysInMonth; i++) {
-      const currentDayDate = new Date(year, month, i);
-      const isToday = i === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-      
-      const dayPosts = posts.filter(p => 
-        p.date.getDate() === i && 
-        p.date.getMonth() === month && 
-        p.date.getFullYear() === year
-      );
-
-      days.push(
-        <div key={i} className={`h-32 p-2 border border-white/10 rounded-md transition-colors hover:bg-white/5 group ${isToday ? 'bg-primary/10 border-primary/30' : 'bg-background/40'}`}>
-          <div className="flex justify-between items-start mb-2">
-            <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-gradient text-white shadow-lg' : 'text-muted-foreground group-hover:text-white'}`}>
-              {i}
-            </span>
-            <Button variant="ghost" size="icon" className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
-          
-          <div className="space-y-1.5 overflow-y-auto max-h-[70px] scrollbar-none">
-            {dayPosts.map(post => (
-              <div key={post.id} className="flex items-center gap-1.5 p-1.5 rounded bg-background/80 border border-white/5 cursor-pointer hover:border-primary/50 transition-colors">
-                {getPlatformIcon(post.platform)}
-                <span className="text-[10px] font-medium truncate flex-1">{post.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    return days;
-  };
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const monthLabel = currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const activeAccounts = accountsQuery.data ?? [];
+  const posts = postsQuery.data ?? [];
+  const today = new Date();
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="mx-auto max-w-6xl space-y-8 pb-10">
+      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <CalendarDays className="w-8 h-8 text-primary" />
+          <h1 className="flex items-center gap-2 text-3xl font-bold">
+            <CalendarDays className="h-8 w-8 text-primary" />
             Content Scheduler
           </h1>
-          <p className="text-muted-foreground mt-2">
-            Plan, schedule, and automate your video publications across all platforms.
-          </p>
+          <p className="mt-2 text-muted-foreground">Schedule posts for connected social accounts.</p>
         </div>
-        <Button className="bg-brand-gradient border-0 text-white shadow-lg hover:opacity-90 whitespace-nowrap">
-          <Plus className="w-4 h-4 mr-2" /> Schedule Post
+        <Button onClick={() => setShowForm((shown) => !shown)} className="border-0 bg-brand-gradient">
+          <Plus className="mr-2 h-4 w-4" /> Schedule post
         </Button>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Calendar View */}
-        <Card className="lg:col-span-3 glass-card p-6 border-white/10">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold">{monthNames[month]} {year}</h2>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="text-xs">
-                Today
-              </Button>
-              <div className="flex items-center border border-white/10 rounded-md overflow-hidden bg-background/50">
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none border-r border-white/10" onClick={prevMonth}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={nextMonth}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+      {showForm && (
+        <form
+          className="glass-card grid gap-4 rounded-xl border border-white/10 p-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            scheduleMutation.mutate();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="scheduled-caption">Post caption</Label>
+            <textarea id="scheduled-caption" value={caption} onChange={(event) => setCaption(event.target.value)} maxLength={5000} required className="min-h-24 w-full rounded-md border border-input bg-background/50 p-3 text-sm" />
           </div>
-
-          <div className="overflow-x-auto pb-4">
-            <div className="min-w-[600px]">
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {dayNames.map(day => (
-                  <div key={day} className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2">
-                    {day}
-                  </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="post-account">Social account</Label>
+              <select id="post-account" value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="h-10 w-full rounded-md border border-input bg-background/50 px-3 text-sm">
+                <option value="">Choose a connected account</option>
+                {activeAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>{account.displayName ?? account.username ?? account.platform}</option>
                 ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-2">
-                {renderCalendarDays()}
-              </div>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="post-time">Date and time</Label>
+              <Input id="post-time" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required />
             </div>
           </div>
-        </Card>
-
-        {/* Upcoming List */}
-        <div className="space-y-4">
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            Upcoming Posts
-          </h3>
-          
-          <div className="space-y-3">
-            {posts.map(post => (
-              <Card key={post.id} className="glass-card overflow-hidden border-white/10 group cursor-pointer hover:border-primary/30 transition-all">
-                <div className="h-24 relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={post.thumbnailUrl} alt={post.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm p-1 rounded-md shadow-lg">
-                    {getPlatformIcon(post.platform)}
-                  </div>
-                  <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1.5">
-                    <Clock className="w-3 h-3" /> {post.time}
-                  </div>
-                </div>
-                <div className="p-3">
-                  <h4 className="font-medium text-sm truncate" title={post.title}>{post.title}</h4>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-muted-foreground">
-                      {post.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-                      Scheduled
-                    </Badge>
-                  </div>
-                </div>
-              </Card>
-            ))}
-
-            <Button variant="ghost" className="w-full text-sm text-muted-foreground hover:text-white border border-dashed border-white/10 h-24">
-              <Plus className="w-4 h-4 mr-2" /> Add to Queue
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {!activeAccounts.length && <p className="text-sm text-amber-400">Connect a social account before scheduling.</p>}
+            <Button type="submit" disabled={!caption.trim() || !accountId || !scheduledAt || scheduleMutation.isPending} className="border-0 bg-brand-gradient">
+              {scheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save schedule
             </Button>
           </div>
+        </form>
+      )}
+
+      {(postsQuery.isError || accountsQuery.isError) && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          Could not load scheduler data. {postsQuery.error?.message ?? accountsQuery.error?.message}
         </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        <Card className="glass-card p-6 lg:col-span-3">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 className="text-xl font-bold">{monthLabel}</h2>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
+              <div className="flex overflow-hidden rounded-md border border-white/10">
+                <Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" aria-label="Next month" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          {postsQuery.isLoading ? (
+            <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="min-w-[600px]">
+                <div className="mb-2 grid grid-cols-7 gap-2">
+                  {shortDays.map((day) => <div key={day} className="py-2 text-center text-xs font-semibold uppercase text-muted-foreground">{day}</div>)}
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                  {Array.from({ length: firstDay }, (_, index) => <div key={`blank-${index}`} className="min-h-24 rounded-md border border-white/5 bg-background/20" />)}
+                  {Array.from({ length: daysInMonth }, (_, index) => {
+                    const day = index + 1;
+                    const date = new Date(year, month, day);
+                    const isToday = date.toDateString() === today.toDateString();
+                    const dayPosts = posts.filter((post) => post.scheduledAt && new Date(post.scheduledAt).toDateString() === date.toDateString());
+                    return (
+                      <div key={day} className={`min-h-24 rounded-md border p-2 ${isToday ? 'border-primary/30 bg-primary/10' : 'border-white/10 bg-background/40'}`}>
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm ${isToday ? 'bg-primary text-white' : 'text-muted-foreground'}`}>{day}</span>
+                        <div className="mt-2 space-y-1">
+                          {dayPosts.map((post) => (
+                            <div key={post.id} title={post.caption ?? ''} className="truncate rounded bg-background/80 px-1.5 py-1 text-[10px]">
+                              {new Date(post.scheduledAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {post.platform}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <aside className="space-y-4">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Clock className="h-5 w-5 text-primary" />
+            Upcoming posts
+          </h2>
+          {posts
+            .filter((post) => post.scheduledAt && new Date(post.scheduledAt) >= today)
+            .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime())
+            .slice(0, 8)
+            .map((post) => (
+              <Card key={post.id} className="glass-card space-y-2 border-white/10 p-4">
+                <div className="flex items-center gap-2 text-xs text-primary"><Share2 className="h-3.5 w-3.5" />{post.platform}</div>
+                <p className="line-clamp-3 text-sm">{post.caption || 'No caption'}</p>
+                <p className="text-xs text-muted-foreground">{new Date(post.scheduledAt!).toLocaleString()}</p>
+              </Card>
+            ))}
+          {!posts.some((post) => post.scheduledAt && new Date(post.scheduledAt) >= today) && (
+            <div className="glass-card rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-muted-foreground">
+              No upcoming posts. <Link href="/social/accounts" className="text-primary hover:underline">Connect an account</Link> to get started.
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">Posts are saved as scheduled entries; automatic publishing requires a configured publishing worker.</p>
+        </aside>
       </div>
     </div>
   );

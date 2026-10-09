@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Patch, Param, UseGuards, ForbiddenException, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Param, UseGuards, ForbiddenException, Post, Delete } from '@nestjs/common';
 import { User, UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UpdateProfileDto, UsersService } from './users.service';
+import { UpdateProfileDto, CreateUserDto, UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -17,6 +17,11 @@ export class UsersController {
   @Patch('me')
   update(@CurrentUser() user: User, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(user.id, dto);
+  }
+
+  @Get('dashboard-stats')
+  getDashboardStats(@CurrentUser() user: User) {
+    return this.users.getDashboardStats(user.id, user.role);
   }
 
   @Get()
@@ -61,5 +66,27 @@ export class UsersController {
       throw new ForbiddenException('Only admins can manage credits');
     }
     return this.users.manageCredits(user.id, targetId, amount);
+  }
+
+  @Post()
+  async createUser(
+    @CurrentUser() user: User,
+    @Body() dto: CreateUserDto
+  ) {
+    if (user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only super admins can create users');
+    }
+    return this.users.createUser(user.id, dto);
+  }
+
+  @Delete(':id')
+  async deleteUser(
+    @CurrentUser() user: User,
+    @Param('id') targetId: string
+  ) {
+    if (user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only super admins can delete users');
+    }
+    return this.users.deleteUser(user.id, targetId);
   }
 }

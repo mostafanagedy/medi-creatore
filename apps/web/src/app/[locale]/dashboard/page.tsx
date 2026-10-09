@@ -24,6 +24,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
+import { Loader2 } from 'lucide-react';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -83,6 +86,31 @@ const recentContent = [
   { title: '10 habits of successful creators', platform: 'Facebook', status: 'draft', views: '-', time: '1d ago' },
 ];
 
+type DashboardContentItem = {
+  id?: string;
+  title: string;
+  platform: string;
+  status: string;
+  views: string;
+  time: string;
+};
+
+type DashboardStats = {
+  adminStats?: {
+    activeUsers?: number;
+    organizations?: number;
+    totalUsage?: number;
+    systemHealth?: number;
+  };
+  creatorStats?: {
+    totalVideos?: number;
+    scheduledPosts?: number;
+    connectedAccounts?: number;
+    creditsRemaining?: number;
+  };
+  recentContent?: DashboardContentItem[];
+};
+
 const systemAuditLogs = [
   { action: 'New User Signup', details: 'm.ahmed@example.com joined', status: 'success', time: '10m ago' },
   { action: 'Plan Upgrade', details: 'Acme Corp upgraded to Pro', status: 'success', time: '1h ago' },
@@ -112,8 +140,16 @@ export default function DashboardPage() {
   const pathname = usePathname();
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month'>('week');
 
-  // Hardcoded to 0 to demonstrate the warning banner
-  const credits = 0;
+  const { data: statsData, isLoading: isStatsLoading } = useQuery<DashboardStats>({
+    queryKey: ['dashboard-stats', viewMode],
+    staleTime: 60000,
+    queryFn: async () => {
+      const response = await apiClient.get('/users/dashboard-stats');
+      return response.data?.data;
+    }
+  });
+
+  const credits = statsData?.creatorStats?.creditsRemaining ?? 0;
 
   const currentPlan = user?.plan ?? 'Starter';
   const maxCredits = currentPlan === 'Pro' ? 50000 : currentPlan === 'Creator' ? 10000 : 1000;
@@ -134,18 +170,20 @@ export default function DashboardPage() {
   const m = getStatsMultiplier();
 
   const creatorStats = [
-    { label: t('totalVideos'), value: Math.round(47 * m).toLocaleString(), href: '/create/video', icon: Video, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-    { label: t('scheduledPosts'), value: Math.round(12 * m).toLocaleString(), href: '/social/scheduler', icon: CalendarCheck2, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-    { label: t('connectedAccounts'), value: '6', href: '/social/accounts', icon: Share2, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+    { label: t('totalVideos'), value: (statsData?.creatorStats?.totalVideos ?? 0).toLocaleString(), href: '/create/video', icon: Video, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+    { label: t('scheduledPosts'), value: (statsData?.creatorStats?.scheduledPosts ?? 0).toLocaleString(), href: '/social/scheduler', icon: CalendarCheck2, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
+    { label: t('connectedAccounts'), value: (statsData?.creatorStats?.connectedAccounts ?? 0).toString(), href: '/social/accounts', icon: Share2, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
     { label: t('creditsRemaining'), value: credits.toLocaleString(), href: '/settings/billing', icon: Zap, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
   ];
 
   const adminStats = [
-    { label: t('activeUsers'), value: Math.round(1248 * m).toLocaleString(), href: '/admin/users', icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-    { label: t('organizations'), value: Math.round(34 + m * 2).toLocaleString(), href: '/admin/organizations', icon: Globe2, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-    { label: t('totalUsage'), value: `$${Math.round(4280 * m).toLocaleString()}`, href: '/admin/billing', icon: DollarSign, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-    { label: t('systemHealth'), value: '99.9%', href: '/admin/health', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+    { label: t('activeUsers'), value: (statsData?.adminStats?.activeUsers ?? 0).toLocaleString(), href: '/admin/users', icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+    { label: t('organizations'), value: (statsData?.adminStats?.organizations ?? 0).toLocaleString(), href: '/admin/organizations', icon: Globe2, color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
+    { label: t('totalUsage'), value: `$${(statsData?.adminStats?.totalUsage ?? 0).toLocaleString()}`, href: '/admin/billing', icon: DollarSign, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+    { label: t('systemHealth'), value: `${statsData?.adminStats?.systemHealth ?? 99.9}%`, href: '/admin/health', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   ];
+
+  const recentContentMapped: DashboardContentItem[] = statsData?.recentContent ?? recentContent;
 
   const creatorQuickActions = [
     { label: t('video'), href: '/create/video', icon: '🎥' },
@@ -168,7 +206,7 @@ export default function DashboardPage() {
 
   return (
     <div className={locale === 'ar' ? 'font-arabic' : ''}>
-      {credits === 0 && (
+      {credits === 0 && viewMode !== 'admin' && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -183,13 +221,13 @@ export default function DashboardPage() {
                 {t('creditsExhausted')}
               </h3>
               <p className="text-sm text-red-500/80">
-                {viewMode === 'admin' ? t('creditsAdmin') : t('creditsCreator')}
+                {t('creditsCreator')}
               </p>
             </div>
           </div>
-          <Link href={viewMode === 'admin' ? "/admin/billing" : "/settings/billing"} className="w-full sm:w-auto">
+          <Link href="/settings/billing" className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white border-0 shadow-lg shadow-red-500/20">
-              {viewMode === 'admin' ? t('topupAdmin') : t('topupCreator')}
+              {t('topupCreator')}
             </Button>
           </Link>
         </motion.div>
@@ -491,7 +529,7 @@ export default function DashboardPage() {
                       </div>
                     ))
                   ) : (
-                    recentContent.map((item, idx) => (
+                    recentContentMapped.map((item, idx) => (
                       <div key={idx} className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group">
                         <div className="w-10 h-10 rounded-lg bg-gradient-card flex items-center justify-center shrink-0 border border-white/5">
                           <Play className="w-4 h-4 text-muted-foreground" />

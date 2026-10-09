@@ -9,6 +9,7 @@ This project is structured as a Monorepo using [Turborepo](https://turbo.build/r
 ### Apps
 - **`web`**: A modern [Next.js](https://nextjs.org/) frontend application. Uses Tailwind CSS and shadcn/ui.
 - **`api`**: A robust [NestJS](https://nestjs.com/) backend application.
+- **`worker`**: A NestJS [BullMQ](https://docs.bullmq.io/) consumer for background jobs, backed by Redis.
 
 ### Packages
 - **`database`**: Contains the Prisma ORM schema and client exports.
@@ -17,10 +18,11 @@ This project is structured as a Monorepo using [Turborepo](https://turbo.build/r
 
 ## Prerequisites
 
-- Node.js (v18+)
-- pnpm (v8+)
+- Node.js (v20+)
+- pnpm (v9+)
 - Docker & Docker Compose (optional, for local database)
 - PostgreSQL (if not using Docker)
+- Redis (required to run the background worker; included in Docker Compose)
 
 ## Getting Started
 
@@ -52,12 +54,18 @@ This project is structured as a Monorepo using [Turborepo](https://turbo.build/r
    ```
 
 5. **Start the Development Servers**
-   To start both the `web` and `api` servers simultaneously:
+   To start the `web`, `api`, and Redis-backed `worker` simultaneously:
    ```bash
    npx turbo run dev
    ```
    - **Frontend:** http://localhost:3000
    - **Backend API:** http://localhost:3001
+   - **Worker:** consumes BullMQ queues registered in `apps/worker`. Queue processors are scaffolds and report an unrecoverable job failure until their provider/business logic is implemented.
+
+   To run just the worker locally (with Redis available):
+   ```bash
+   pnpm --filter @ai-content-os/worker dev
+   ```
 
 ## Architecture
 

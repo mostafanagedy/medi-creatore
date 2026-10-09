@@ -1,0 +1,150 @@
+
+{
+  "header": {
+    "reportVersion": 5,
+    "event": "Entering the V8 API without proper locking in place",
+    "trigger": "FatalError",
+    "filename": "report.20261009.072412.2564.0.078.json",
+    "dumpEventTime": "2026-10-09T07:24:12Z",
+    "dumpEventTimeStamp": "1791519852866",
+    "processId": 2564,
+    "threadId": null,
+    "cwd": "H:\\medi-creatore",
+    "commandLine": [
+      "C:\\Users\\elmnshawy\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe",
+      "--no-warnings",
+      "--report-on-fatalerror",
+      "--optimize-for-size",
+      "--expose-gc",
+      "--no-maglev",
+      "--no-sparkplug",
+      "C:\\Users\\elmnshawy\\AppData\\Roaming\\npm\\node_modules\\@github\\copilot\\node_modules\\@github\\copilot-win32-x64\\copilot.exe",
+      "--model",
+      "gemma4:31b-cloud"
+    ],
+    "nodejsVersion": "v24.20.0",
+    "wordSize": 64,
+    "arch": "x64",
+    "platform": "win32",
+    "componentVersions": {
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "node": "24.20.0",
+      "openssl": "3.5.7",
+      "simdjson": "4.6.6",
+      "simdutf": "6.4.0",
+      "sqlite": "3.53.4",
+      "tz": "2026c",
+      "undici": "7.29.0",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.17-node.53",
+      "zlib": "1.3.2.1-motley-42c2f19",
+      "zstd": "1.5.7"
+    },
+    "release": {
+      "name": "node",
+      "lts": "Krypton",
+      "headersUrl": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0-headers.tar.gz",
+      "sourceUrl": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0.tar.gz",
+      "libUrl": "https://nodejs.org/download/release/v24.20.0/win-x64/node.lib"
+    },
+    "osName": "Windows_NT",
+    "osRelease": "10.0.26200",
+    "osVersion": "Windows 11 Pro",
+    "osMachine": "x86_64",
+    "cpus": [
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2163500,
+        "nice": 0,
+        "sys": 2545953,
+        "idle": 10272984,
+        "irq": 243484
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2375109,
+        "nice": 0,
+        "sys": 1832578,
+        "idle": 10774671,
+        "irq": 123234
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2848781,
+        "nice": 0,
+        "sys": 2047812,
+        "idle": 10085765,
+        "irq": 101921
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2475359,
+        "nice": 0,
+        "sys": 1713046,
+        "idle": 10793953,
+        "irq": 79000
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2686093,
+        "nice": 0,
+        "sys": 2250078,
+        "idle": 10046187,
+        "irq": 100328
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2293984,
+        "nice": 0,
+        "sys": 1867468,
+        "idle": 10820906,
+        "irq": 85312
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2730000,
+        "nice": 0,
+        "sys": 2081203,
+        "idle": 10171156,
+        "irq": 96703
+      },
+      {
+        "model": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+        "speed": 1896,
+        "user": 2360250,
+        "nice": 0,
+        "sys": 1649375,
+        "idle": 10972734,
+        "irq": 70046
+      }
+    ],
+    "networkInterfaces": [
+      {
+        "name": "vEthernet (Default Switch)",
+        "internal": false,
+        "mac": "00:15:5d:e2:f7:64",
+        "address": "fe80::cbe

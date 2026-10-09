@@ -1,342 +1,268 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Image as ImageIcon, Sparkles, AlertCircle, Download, Trash2, Maximize2, Settings2, LayoutGrid, MonitorPlay, Smartphone, Square } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  AlertCircle, Download, Image as ImageIcon, Loader2, Maximize2, MonitorPlay,
+  Settings2, Smartphone, Sparkles, Square, Trash2,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useAuthStore } from '@/stores/auth.store';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { useDefaultOrganization } from '@/hooks/use-default-organization';
+import apiClient from '@/lib/api-client';
+import { Link } from '@/i18n/routing';
 
-import { useRouter } from 'next/navigation';
+type GeneratedImage = { url: string; width: number; height: number };
+
+const dimensions: Record<string, { width: number; height: number }> = {
+  '1:1': { width: 1024, height: 1024 },
+  '16:9': { width: 1536, height: 864 },
+  '9:16': { width: 864, height: 1536 },
+};
 
 export default function CreateImagePage() {
-  const { user } = useAuthStore();
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { credits, isLoading: isProfileLoading } = useDefaultOrganization();
   const [prompt, setPrompt] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [negativePrompt, setNegativePrompt] = useState('');
-  
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
-  // Advanced Settings
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [artStyle, setArtStyle] = useState('photorealistic');
-  const [imageCount, setImageCount] = useState('1');
-  
-  const [results, setResults] = useState<string[]>([]);
+  const [imageCount, setImageCount] = useState(1);
+  const [results, setResults] = useState<GeneratedImage[]>([]);
+  const creditsCost = imageCount * 5;
 
-  const hasCredits = (user?.credits ?? 0) > 0;
-  const creditsCost = parseInt(imageCount) * 2; // e.g. 2 credits per image
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post('/ai/image', {
+        prompt: prompt.trim(),
+        negativePrompt: negativePrompt.trim() || undefined,
+        aspectRatio,
+        style: artStyle,
+        numberOfImages: imageCount,
+        ...dimensions[aspectRatio],
+      });
+      return response.data.data as { images: GeneratedImage[]; balance: number };
+    },
+    onSuccess: ({ images }) => {
+      setResults((current) => [...images, ...current]);
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      toast.success('Image generation finished.');
+    },
+    onError: (error: { response?: { data?: { message?: string } }; message?: string }) => {
+      toast.error(error.response?.data?.message ?? error.message ?? 'Image generation failed.');
+    },
+  });
 
-  const handleEnhancePrompt = () => {
-    if (!prompt) return;
+  const enhancePrompt = async () => {
+    if (!prompt.trim()) return;
     setIsEnhancing(true);
-    setTimeout(() => {
-      setPrompt(prompt + ", cinematic lighting, 8k resolution, highly detailed, masterpiece, trending on artstation");
-      setIsEnhancing(false);
-    }, 1500);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.type.startsWith('image/')) {
-        setReferenceFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
+    try {
+      const response = await apiClient.post('/ai/text', {
+        prompt: `Improve this image-generation prompt while preserving its intent. Return only the improved prompt:\n\n${prompt}`,
+        systemPrompt: 'You refine image prompts with concrete visual details. Return only the prompt.',
+        maxTokens: 300,
+        temperature: 0.6,
+      });
+      const enhancedPrompt = response.data?.data?.text;
+      if (typeof enhancedPrompt !== 'string' || !enhancedPrompt.trim()) {
+        throw new Error('The AI provider returned an empty prompt.');
       }
+      setPrompt(enhancedPrompt.trim());
+      toast.success('Prompt enhanced.');
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: string } }; message?: string })
+        .response?.data?.message ?? (error as Error).message;
+      toast.error(message || 'Could not enhance the prompt.');
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
-  const removeImage = () => {
-    setReferenceFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-  };
-
-  const handleGenerate = () => {
-    if (!hasCredits) {
-      router.push('/billing/credits');
-      return;
-    }
-    if ((!prompt && !referenceFile) || isGenerating) return;
-    
-    setIsGenerating(true);
-
-    // Mock API Response
-    setTimeout(() => {
-      const newImages = Array.from({ length: parseInt(imageCount) }).map((_, i) => 
-        `https://picsum.photos/seed/${Math.random()}/800/800`
-      );
-      setResults(prev => [...newImages, ...prev]); 
-      setIsGenerating(false);
-    }, 3000);
-  };
+  const isGenerating = generateMutation.isPending;
+  const hasCredits = credits >= creditsCost;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-10">
+    <div className="mx-auto max-w-5xl space-y-8 pb-10">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <ImageIcon className="w-8 h-8 text-primary" />
+        <h1 className="flex items-center gap-2 text-3xl font-bold">
+          <ImageIcon className="h-8 w-8 text-primary" />
           AI Image Generator
         </h1>
-        <p className="text-muted-foreground mt-2">
-          Generate stunning, high-quality images from text descriptions in seconds.
-        </p>
+        <p className="mt-2 text-muted-foreground">Generate images with your configured AI provider.</p>
       </div>
 
-      {!hasCredits && (
+      {!isProfileLoading && !hasCredits && (
         <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Insufficient Credits</AlertTitle>
-          <AlertDescription className="flex items-center justify-between">
-            <span>You have 0 credits remaining. Please recharge to continue generating images.</span>
-            <Link href="/billing/credits">
-              <Button size="sm" variant="outline" className="border-destructive text-destructive hover:bg-destructive hover:text-white">
-                Buy Credits
-              </Button>
+          <AlertTitle>Insufficient credits</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>{credits.toLocaleString()} credits available; this generation needs {creditsCost}.</span>
+            <Link href="/settings/billing">
+              <Button size="sm" variant="outline">View billing</Button>
             </Link>
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Input Area */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="glass-card p-6 rounded-xl space-y-6 border border-white/10">
-            <div className="space-y-2 relative">
-              <div className="flex justify-between items-end">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <div className="glass-card space-y-6 rounded-xl border border-white/10 p-6">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-end justify-between gap-2">
                 <Label htmlFor="prompt" className="text-lg font-semibold">What do you want to create?</Label>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 text-xs bg-brand-gradient/10 border-primary/20 text-primary hover:bg-brand-gradient/20 hover:text-primary gap-1"
-                  onClick={handleEnhancePrompt}
-                  disabled={!prompt || isEnhancing}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 border-primary/20 text-xs text-primary"
+                  onClick={enhancePrompt}
+                  disabled={!prompt.trim() || isEnhancing}
                 >
-                  {isEnhancing ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3 h-3" />
-                  )}
-                  {isEnhancing ? 'Enhancing...' : 'Enhance Prompt'}
+                  {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {isEnhancing ? 'Enhancing...' : 'Enhance prompt'}
                 </Button>
               </div>
               <textarea
                 id="prompt"
-                placeholder="A futuristic cyber-punk city at night, neon lights reflecting in puddles, highly detailed..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary resize-none"
+                placeholder="A futuristic cyberpunk city at night, neon lights reflecting in puddles..."
+                className="min-h-32 w-full resize-y rounded-md border border-input bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
+                onChange={(event) => setPrompt(event.target.value)}
+                maxLength={4000}
               />
+              <p className="text-right text-xs text-muted-foreground">{prompt.length}/4000</p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="image-upload" className="font-semibold">Reference Image (Image-to-Image)</Label>
-              
-              {!previewUrl ? (
-                <div className="flex items-center gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="w-full bg-background/50 border-dashed border-2 h-24 hover:bg-accent flex flex-col gap-1 relative overflow-hidden transition-colors" 
-                    asChild
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                        const file = e.dataTransfer.files[0];
-                        if (file.type.startsWith('image/')) {
-                          setReferenceFile(file);
-                          setPreviewUrl(URL.createObjectURL(file));
-                        }
-                      }
-                    }}
-                  >
-                    <Label htmlFor="image-upload" className="cursor-pointer flex items-center justify-center w-full h-full">
-                      <ImageIcon className="w-6 h-6 text-muted-foreground mb-1" />
-                      <span className="text-sm font-medium">Click to upload or drag and drop</span>
-                      <span className="text-xs text-muted-foreground">Optional: Modify an existing image</span>
-                    </Label>
-                  </Button>
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileChange}
+            <div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground"
+                onClick={() => setShowAdvanced((shown) => !shown)}
+                aria-expanded={showAdvanced}
+              >
+                <Settings2 className="h-4 w-4" />
+                {showAdvanced ? 'Hide advanced options' : 'Advanced options'}
+              </Button>
+              {showAdvanced && (
+                <div className="mt-4 space-y-2 rounded-lg border border-border bg-background/50 p-4">
+                  <Label htmlFor="negative-prompt">Exclude from image</Label>
+                  <textarea
+                    id="negative-prompt"
+                    placeholder="blurry, distorted, text..."
+                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={negativePrompt}
+                    onChange={(event) => setNegativePrompt(event.target.value)}
+                    maxLength={2000}
                   />
                 </div>
-              ) : (
-                <div className="relative w-fit border border-primary/20 rounded-lg overflow-hidden group shadow-md">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="Reference Preview" className="h-40 w-auto object-cover bg-black/40" />
-                  <Button 
-                    variant="destructive" 
-                    size="icon" 
-                    onClick={removeImage} 
-                    className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg opacity-90 hover:opacity-100"
-                    title="Remove image"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
               )}
             </div>
 
-            {/* Advanced Settings Toggle */}
-            <div className="pt-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-muted-foreground flex items-center gap-2"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-              >
-                <Settings2 className="w-4 h-4" />
-                {showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options'}
-              </Button>
-              
-              {showAdvanced && (
-                <div className="mt-4 p-4 rounded-lg bg-background/50 border border-border space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="negative-prompt">Negative Prompt (What to exclude)</Label>
-                    <Input
-                      id="negative-prompt"
-                      placeholder="blurry, distorted, text, ugly, bad anatomy..."
-                      className="bg-background"
-                      value={negativePrompt}
-                      onChange={(e) => setNegativePrompt(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Button 
-              onClick={handleGenerate} 
-              disabled={(!prompt && !referenceFile) || isGenerating}
-              className={`w-full h-14 border-0 text-lg shadow-lg relative overflow-hidden transition-all ${
-                (!prompt && !referenceFile) || !hasCredits || isGenerating 
-                  ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
-                  : 'bg-brand-gradient hover:opacity-90 text-white'
-              }`}
+            <Button
+              onClick={() => generateMutation.mutate()}
+              disabled={!prompt.trim() || isGenerating || isProfileLoading || !hasCredits}
+              className="h-14 w-full border-0 bg-brand-gradient text-lg text-white shadow-lg hover:opacity-90"
             >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin relative z-10" />
-                  <span className="relative z-10">Generating Images...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Generate Image (Costs {creditsCost} Credits)
-                </>
-              )}
+              {isGenerating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
+              {isGenerating ? 'Generating images...' : `Generate ${imageCount} image${imageCount > 1 ? 's' : ''} · ${creditsCost} credits`}
             </Button>
           </div>
         </div>
 
-        {/* Settings Sidebar */}
-        <div className="space-y-6">
-          <div className="glass-card p-5 rounded-xl border border-white/10 space-y-5">
-            <h3 className="font-semibold text-lg border-b border-border pb-2">Generation Settings</h3>
-            
-            <div className="space-y-3">
-              <Label className="text-muted-foreground text-xs uppercase tracking-wider">Aspect Ratio</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button variant={aspectRatio === '1:1' ? 'default' : 'outline'} size="sm" onClick={() => setAspectRatio('1:1')} className="flex flex-col h-14 gap-1">
-                  <Square className="w-4 h-4" /> <span className="text-[10px]">1:1</span>
+        <aside className="glass-card space-y-5 rounded-xl border border-white/10 p-5">
+          <h2 className="border-b border-border pb-2 text-lg font-semibold">Generation settings</h2>
+          <div className="space-y-3">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Aspect ratio</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: '1:1', icon: Square },
+                { value: '16:9', icon: MonitorPlay },
+                { value: '9:16', icon: Smartphone },
+              ].map(({ value, icon: Icon }) => (
+                <Button key={value} variant={aspectRatio === value ? 'default' : 'outline'} size="sm" onClick={() => setAspectRatio(value)} className="flex h-14 flex-col gap-1">
+                  <Icon className="h-4 w-4" />
+                  <span className="text-[10px]">{value}</span>
                 </Button>
-                <Button variant={aspectRatio === '16:9' ? 'default' : 'outline'} size="sm" onClick={() => setAspectRatio('16:9')} className="flex flex-col h-14 gap-1">
-                  <MonitorPlay className="w-4 h-4" /> <span className="text-[10px]">16:9</span>
-                </Button>
-                <Button variant={aspectRatio === '9:16' ? 'default' : 'outline'} size="sm" onClick={() => setAspectRatio('9:16')} className="flex flex-col h-14 gap-1">
-                  <Smartphone className="w-4 h-4" /> <span className="text-[10px]">9:16</span>
-                </Button>
-              </div>
+              ))}
             </div>
-
-            <div className="space-y-3">
-              <Label className="text-muted-foreground text-xs uppercase tracking-wider">Art Style</Label>
-              <select 
-                value={artStyle} 
-                onChange={(e) => setArtStyle(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="photorealistic">Photorealistic</option>
-                <option value="anime">Anime / Manga</option>
-                <option value="3d">3D Render</option>
-                <option value="digital-art">Digital Art</option>
-                <option value="oil-painting">Oil Painting</option>
-                <option value="line-art">Line Art</option>
-              </select>
-            </div>
-
-            <div className="space-y-3">
-              <Label className="text-muted-foreground text-xs uppercase tracking-wider">Number of Images</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {['1', '2', '4'].map((num) => (
-                  <Button 
-                    key={num}
-                    variant={imageCount === num ? 'default' : 'outline'} 
-                    size="sm" 
-                    onClick={() => setImageCount(num)}
-                  >
-                    {num}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
           </div>
-        </div>
+          <div className="space-y-2">
+            <Label htmlFor="art-style">Art style</Label>
+            <select
+              id="art-style"
+              value={artStyle}
+              onChange={(event) => setArtStyle(event.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm"
+            >
+              <option value="photorealistic">Photorealistic</option>
+              <option value="anime">Anime / Manga</option>
+              <option value="3d">3D Render</option>
+              <option value="digital-art">Digital Art</option>
+              <option value="oil-painting">Oil Painting</option>
+              <option value="line-art">Line Art</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>Images</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 4].map((count) => (
+                <Button key={count} variant={imageCount === count ? 'default' : 'outline'} size="sm" onClick={() => setImageCount(count)}>
+                  {count}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {/* Generation History Section */}
-      <div className="mt-12 space-y-4">
-        <h3 className="text-xl font-bold flex items-center gap-2 border-b border-white/5 pb-2">
-          <LayoutGrid className="w-5 h-5 text-primary" />
-          Recent Creations
-        </h3>
-        
-        {results.length > 0 ? (
-           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {results.map((url, i) => (
-                <div key={i} className="glass-card rounded-xl overflow-hidden border border-white/10 group relative">
-                  {/* Image Aspect Box */}
-                  <div className="aspect-square bg-muted relative overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Generated AI ${i}`} className="object-cover w-full h-full" />
-                    
-                    {/* Hover Overlay */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center gap-3">
-                      <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/40 text-white border-0">
-                        <Maximize2 className="w-5 h-5" />
-                      </Button>
-                      <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/40 text-white border-0">
-                        <Download className="w-5 h-5" />
-                      </Button>
-                      <Button size="icon" variant="destructive" className="h-10 w-10 rounded-full border-0">
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </div>
+      <section className="space-y-4">
+        <h2 className="flex items-center gap-2 border-b border-white/5 pb-2 text-xl font-bold">
+          <ImageIcon className="h-5 w-5 text-primary" />
+          This session
+        </h2>
+        {generateMutation.isError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Generation failed</AlertTitle>
+            <AlertDescription>The request could not be completed. Check your credits and configured image provider.</AlertDescription>
+          </Alert>
+        )}
+        {results.length ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {results.map((image, index) => (
+              <div key={`${image.url}-${index}`} className="glass-card group relative overflow-hidden rounded-xl border border-white/10">
+                <div className="aspect-square bg-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={image.url} alt={`Generated image ${index + 1}`} className="h-full w-full object-cover" />
                 </div>
-              ))}
-           </div>
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                  <Button size="icon" variant="secondary" aria-label="Open image" onClick={() => window.open(image.url, '_blank', 'noopener,noreferrer')}>
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                  <a href={image.url} target="_blank" rel="noreferrer" download>
+                    <Button size="icon" variant="secondary" aria-label="Download image">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </a>
+                  <Button size="icon" variant="destructive" aria-label="Remove image" onClick={() => setResults((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-16 text-muted-foreground glass-card rounded-xl border border-dashed border-white/10 flex flex-col items-center justify-center gap-3">
-            <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
-            <p>No images generated yet. Enter a prompt to bring your ideas to life!</p>
+          <div className="glass-card flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 py-16 text-center text-muted-foreground">
+            <ImageIcon className="h-12 w-12 text-muted-foreground/30" />
+            <p>Your generated images will appear here.</p>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -20,23 +20,25 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api-client';
+import { useAuthStore } from '@/stores/auth.store';
 
-// Mock data (fallback if API fails)
-const mockUsers = Array.from({ length: 45 }).map((_, i) => ({
-  id: `USR-${1000 + i}`,
-  name: i % 3 === 0 ? 'Mohamed Ahmed' : i % 3 === 1 ? 'Sarah Connor' : 'Ahmed Youssef',
-  email: `user${i}@example.com`,
-  role: i === 0 || i === 5 ? 'ADMIN' : 'USER',
-  credits: i % 4 === 0 ? 0 : 1500 + i * 100,
-  joinedDate: new Date(Date.now() - i * 86400000 * 3).toISOString().split('T')[0],
-  status: i % 7 === 0 ? 'SUSPENDED' : 'ACTIVE',
-}));
+type AdminUserItem = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  credits: number;
+  joinedDate: string;
+  status: 'ACTIVE' | 'SUSPENDED';
+};
 
 export default function AdminUsersPage() {
   const t = useTranslations('AdminUsers');
   const locale = useLocale();
   const isRtl = locale === 'ar';
   const queryClient = useQueryClient();
+  const currentUser = useAuthStore(state => state.user);
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
@@ -44,13 +46,14 @@ export default function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { data: usersData = [], isLoading } = useQuery({
+  const { data: usersData = [] as AdminUserItem[], isLoading } = useQuery({
     queryKey: ['admin-users'],
+    staleTime: 60000,
     queryFn: async () => {
       const response = await apiClient.get('/users');
-      // The API returns { id, name, email, role, createdAt, isSuspended, creditWallet: { balance } }
+      // The API returns { success, data: [...], timestamp } because of ResponseInterceptor
       // We map it to match our component's expected structure
-      return response.data.map((u: any) => ({
+      return response.data.data.map((u: any) => ({
         id: u.id,
         name: u.name || 'Unknown',
         email: u.email,
@@ -109,16 +112,45 @@ export default function AdminUsersPage() {
     }
   });
 
-  // Use real data if available, otherwise mock data for preview
-  const usersList = usersData.length > 0 ? usersData : mockUsers;
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      await apiClient.delete(`/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success(isRtl ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully');
+      setModalState({ type: null });
+    },
+    onError: () => {
+      toast.error(isRtl ? 'حدث خطأ أثناء تنفيذ العملية' : 'An error occurred');
+    }
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await apiClient.post(`/users`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast.success(isRtl ? 'تم إضافة المستخدم بنجاح' : 'User created successfully');
+      setModalState({ type: null });
+      setAddUserInput({ name: '', email: '', password: '', role: 'USER' });
+    },
+    onError: () => {
+      toast.error(isRtl ? 'حدث خطأ أثناء تنفيذ العملية' : 'An error occurred');
+    }
+  });
+
+  const usersList = usersData;
 
   // New states for selection, sorting, and loading
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [sortConfig, setSortConfig] = useState<{ key: keyof typeof mockUsers[0], direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const [modalState, setModalState] = useState<{ type: 'ADD' | 'CREDITS' | 'DELETE' | null, userId?: string | null }>({ type: null });
   const [creditsInput, setCreditsInput] = useState('');
+  const [addUserInput, setAddUserInput] = useState({ name: '', email: '', password: '', role: 'USER' });
 
   // 🔒 BACKEND SECURITY NOTE: 
   // In a real application, ensure that the API routes for changing roles, suspending users, 
@@ -161,7 +193,7 @@ export default function AdminUsersPage() {
     });
   };
 
-  const handleSort = (key: keyof typeof mockUsers[0]) => {
+  const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
@@ -215,8 +247,8 @@ export default function AdminUsersPage() {
 
   // Stats
   const totalUsersCount = usersList.length;
-  const activeUsersCount = usersList.filter(u => u.status === 'ACTIVE').length;
-  const suspendedUsersCount = usersList.filter(u => u.status === 'SUSPENDED').length;
+  const activeUsersCount = usersList.filter((u: AdminUserItem) => u.status === 'ACTIVE').length;
+  const suspendedUsersCount = usersList.filter((u: AdminUserItem) => u.status === 'SUSPENDED').length;
 
   const SortIcon = ({ columnKey }: { columnKey: string }) => {
     if (sortConfig?.key === columnKey) {
@@ -243,10 +275,12 @@ export default function AdminUsersPage() {
             <Download className="w-4 h-4" />
             {isRtl ? 'تصدير CSV' : 'Export CSV'}
           </Button>
-          <Button className="gap-2 h-9 bg-brand-gradient text-white border-0 hover:opacity-90" onClick={() => setModalState({ type: 'ADD' })}>
-            <Plus className="w-4 h-4" />
-            {isRtl ? 'إضافة مستخدم' : 'Add User'}
-          </Button>
+          {isSuperAdmin && (
+            <Button className="gap-2 h-9 bg-brand-gradient text-white border-0 hover:opacity-90" onClick={() => setModalState({ type: 'ADD' })}>
+              <Plus className="w-4 h-4" />
+              {isRtl ? 'إضافة مستخدم' : 'Add User'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -488,19 +522,19 @@ export default function AdminUsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align={isRtl ? 'start' : 'end'} className="w-56 border-white/10 bg-black/90 backdrop-blur-xl">
-                            {user.role !== 'SUPER_ADMIN' && (
+                            {isSuperAdmin && user.role !== 'SUPER_ADMIN' && (
                               <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => changeRoleMutation.mutate({ userId: user.id, role: 'SUPER_ADMIN' })}>
                                 <ShieldAlert className="w-4 h-4 text-purple-400" />
                                 {isRtl ? 'ترقية إلى سوبر أدمن' : 'Make Super Admin'}
                               </DropdownMenuItem>
                             )}
-                            {user.role !== 'ADMIN' && (
+                            {isSuperAdmin && user.role !== 'ADMIN' && (
                               <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => changeRoleMutation.mutate({ userId: user.id, role: 'ADMIN' })}>
                                 <ShieldAlert className="w-4 h-4 text-primary" />
                                 {isRtl ? 'تعيين كأدمن' : 'Make Admin'}
                               </DropdownMenuItem>
                             )}
-                            {user.role !== 'USER' && (
+                            {isSuperAdmin && user.role !== 'USER' && (
                               <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => changeRoleMutation.mutate({ userId: user.id, role: 'USER' })}>
                                 <Users className="w-4 h-4 text-muted-foreground" />
                                 {isRtl ? 'تعيين كمستخدم' : 'Make User'}
@@ -528,10 +562,12 @@ export default function AdminUsersPage() {
                                 {isRtl ? 'إلغاء الحظر' : 'Activate User'}
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem className="gap-2 text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer" onClick={() => setModalState({ type: 'DELETE', userId: user.id })}>
-                              <Trash2 className="w-4 h-4" />
-                              {isRtl ? 'حذف المستخدم' : 'Delete User'}
-                            </DropdownMenuItem>
+                            {isSuperAdmin && (
+                              <DropdownMenuItem className="gap-2 text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer" onClick={() => setModalState({ type: 'DELETE', userId: user.id })}>
+                                <Trash2 className="w-4 h-4" />
+                                {isRtl ? 'حذف المستخدم' : 'Delete User'}
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -600,25 +636,29 @@ export default function AdminUsersPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-muted-foreground mb-1.5 block">{isRtl ? 'الاسم' : 'Name'}</label>
-                    <input type="text" className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50" />
+                    <input type="text" value={addUserInput.name} onChange={e => setAddUserInput({...addUserInput, name: e.target.value})} className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50" />
                   </div>
                   <div>
                     <label className="text-sm text-muted-foreground mb-1.5 block">{isRtl ? 'البريد الإلكتروني' : 'Email'}</label>
-                    <input type="email" className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50" />
+                    <input type="email" value={addUserInput.email} onChange={e => setAddUserInput({...addUserInput, email: e.target.value})} className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50" />
                   </div>
                   <div>
                     <label className="text-sm text-muted-foreground mb-1.5 block">{isRtl ? 'كلمة المرور' : 'Password'}</label>
-                    <input type="password" className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50" />
+                    <input type="password" value={addUserInput.password} onChange={e => setAddUserInput({...addUserInput, password: e.target.value})} className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50" />
                   </div>
                   <div>
                     <label className="text-sm text-muted-foreground mb-1.5 block">{isRtl ? 'الصلاحية' : 'Role'}</label>
-                    <select className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50 [&>option]:bg-zinc-900">
+                    <select value={addUserInput.role} onChange={e => setAddUserInput({...addUserInput, role: e.target.value})} className="w-full h-9 bg-black/20 border border-white/10 rounded-md text-sm px-3 focus:outline-none focus:border-primary/50 [&>option]:bg-zinc-900">
                       <option value="USER">User</option>
                       <option value="ADMIN">Admin</option>
                     </select>
                   </div>
-                  <Button className="w-full mt-2 bg-brand-gradient text-white border-0" onClick={() => setModalState({ type: null })}>
-                    {isRtl ? 'إنشاء المستخدم' : 'Create User'}
+                  <Button
+                    className="w-full mt-2 bg-brand-gradient text-white border-0"
+                    disabled={createUserMutation.isPending || !addUserInput.name || !addUserInput.email || !addUserInput.password}
+                    onClick={() => createUserMutation.mutate(addUserInput)}
+                  >
+                    {createUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isRtl ? 'إنشاء المستخدم' : 'Create User')}
                   </Button>
                 </div>
               )}
@@ -636,8 +676,8 @@ export default function AdminUsersPage() {
                     className={`w-full h-10 bg-black/20 border border-white/10 rounded-md font-mono text-center text-lg focus:outline-none focus:border-primary/50 ${isRtl ? 'text-right' : 'text-left'}`} 
                     dir="ltr"
                   />
-                  <Button 
-                    className="w-full mt-2 bg-primary text-white" 
+                  <Button
+                    className="w-full mt-2 bg-primary text-white"
                     disabled={manageCreditsMutation.isPending || !creditsInput}
                     onClick={() => {
                       if (modalState.userId && creditsInput) {
@@ -667,8 +707,14 @@ export default function AdminUsersPage() {
                     <Button variant="outline" className="flex-1 border-white/10" onClick={() => setModalState({ type: null })}>
                       {isRtl ? 'إلغاء' : 'Cancel'}
                     </Button>
-                    <Button className="flex-1 bg-red-500 hover:bg-red-600 text-white border-0" onClick={() => setModalState({ type: null })}>
-                      {isRtl ? 'نعم، احذف' : 'Yes, Delete'}
+                    <Button
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white border-0"
+                      disabled={deleteUserMutation.isPending}
+                      onClick={() => {
+                        if (modalState.userId) deleteUserMutation.mutate(modalState.userId);
+                      }}
+                    >
+                      {deleteUserMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (isRtl ? 'نعم، احذف' : 'Yes, Delete')}
                     </Button>
                   </div>
                 </div>

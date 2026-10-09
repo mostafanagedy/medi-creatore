@@ -9,6 +9,7 @@ export const CREDIT_COSTS = {
   IMAGE_GENERATION: 5,
   VOICE_GENERATION: 5,
   VIDEO_GENERATION: 50,
+  AVATAR_GENERATION: 25,
 } as const;
 
 export type CreditOperation = keyof typeof CREDIT_COSTS;

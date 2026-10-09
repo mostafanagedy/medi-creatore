@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   Ip,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -116,7 +117,7 @@ export class AuthController {
       req.headers['x-refresh-token'] as string;
 
     if (!refreshToken) {
-      return res.status(HttpStatus.UNAUTHORIZED).json({ message: 'No refresh token provided' });
+      throw new UnauthorizedException('No refresh token provided');
     }
 
     const tokens = await this.authService.refreshTokens(refreshToken, ip);

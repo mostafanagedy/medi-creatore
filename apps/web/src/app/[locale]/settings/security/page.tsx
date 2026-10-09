@@ -1,17 +1,52 @@
 'use client';
 
 import { useState } from 'react';
-import { Shield, Key, Smartphone, Monitor, CheckCircle2, Lock, Eye, EyeOff } from 'lucide-react';
+import { Shield, Key, Smartphone, Monitor, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/auth.store';
+import { useMutation } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
+import { toast } from 'sonner';
+import { useRouter } from '@/i18n/routing';
 
 export default function SecuritySettingsPage() {
-  const { user } = useAuthStore();
+  const { logout } = useAuthStore();
+  const router = useRouter();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.post('/auth/change-password', {
+        currentPassword,
+        newPassword
+      });
+    },
+    onSuccess: () => {
+      toast.success('Password changed successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to change password');
+    }
+  });
+
+  const logoutAllMutation = useMutation({
+    mutationFn: async () => apiClient.post('/auth/logout-all'),
+    onSuccess: () => {
+      logout();
+      router.push('/login');
+      toast.success('All sessions have been signed out.');
+    },
+    onError: (error: { response?: { data?: { message?: string } }; message?: string }) => {
+      toast.error(error.response?.data?.message ?? error.message ?? 'Could not sign out other sessions.');
+    },
+  });
 
   return (
     <div className="space-y-8 max-w-4xl pb-10">
@@ -41,6 +76,8 @@ export default function SecuritySettingsPage() {
                   id="current-password" 
                   type={showCurrentPassword ? "text" : "password"} 
                   className="bg-background/50 pr-10"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
                 />
                 <button 
                   type="button"
@@ -59,6 +96,8 @@ export default function SecuritySettingsPage() {
                   id="new-password" 
                   type={showNewPassword ? "text" : "password"} 
                   className="bg-background/50 pr-10"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
                 />
                 <button 
                   type="button"
@@ -71,7 +110,12 @@ export default function SecuritySettingsPage() {
               <p className="text-xs text-muted-foreground">Must be at least 8 characters long and include a number or symbol.</p>
             </div>
 
-            <Button className="w-full sm:w-auto bg-brand-gradient border-0 text-white hover:opacity-90 mt-2">
+            <Button
+              className="w-full sm:w-auto bg-brand-gradient border-0 text-white hover:opacity-90 mt-2"
+              onClick={() => changePasswordMutation.mutate()}
+              disabled={changePasswordMutation.isPending || !currentPassword || !newPassword}
+            >
+              {changePasswordMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Update Password
             </Button>
           </div>
@@ -84,31 +128,9 @@ export default function SecuritySettingsPage() {
             <h2 className="text-xl font-semibold">Two-Factor Authentication (2FA)</h2>
           </div>
           
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="space-y-1">
-              <p className="font-medium">Protect your account with 2FA</p>
-              <p className="text-sm text-muted-foreground max-w-lg">
-                Adding an extra layer of security means even if someone guesses your password, they won't be able to log in without your device.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              {is2FAEnabled ? (
-                <div className="flex items-center text-emerald-500 text-sm font-medium bg-emerald-500/10 px-3 py-1.5 rounded-full">
-                  <CheckCircle2 className="w-4 h-4 mr-1.5" /> Enabled
-                </div>
-              ) : (
-                <div className="flex items-center text-muted-foreground text-sm font-medium bg-muted/50 px-3 py-1.5 rounded-full">
-                  <Lock className="w-4 h-4 mr-1.5" /> Disabled
-                </div>
-              )}
-              <Button 
-                variant={is2FAEnabled ? "outline" : "default"}
-                className={!is2FAEnabled ? "bg-brand-gradient border-0 text-white hover:opacity-90" : ""}
-                onClick={() => setIs2FAEnabled(!is2FAEnabled)}
-              >
-                {is2FAEnabled ? 'Disable 2FA' : 'Enable 2FA'}
-              </Button>
-            </div>
+          <div className="space-y-2">
+            <p className="font-medium">Two-factor authentication is not configured</p>
+            <p className="text-sm text-muted-foreground">This API does not currently provide enrollment or verification endpoints, so 2FA cannot be enabled from this page.</p>
           </div>
         </div>
 
@@ -135,24 +157,16 @@ export default function SecuritySettingsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-lg bg-background/40 border border-white/5">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                  <Smartphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">iPhone 14 Pro • Safari</p>
-                  <p className="text-xs text-muted-foreground">Riyadh, Saudi Arabia • Last active: 2 hours ago</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                Revoke
-              </Button>
-            </div>
-
+            <p className="text-sm text-muted-foreground">Other device details are not exposed by the session API.</p>
             <div className="pt-4 text-right">
-              <Button variant="outline" className="text-sm">
-                Sign out of all other devices
+              <Button
+                variant="outline"
+                className="text-sm"
+                onClick={() => logoutAllMutation.mutate()}
+                disabled={logoutAllMutation.isPending}
+              >
+                {logoutAllMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Sign out of all sessions
               </Button>
             </div>
           </div>

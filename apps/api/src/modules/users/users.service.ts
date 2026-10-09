@@ -1,7 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { MemberRole, PlanTier, UserRole } from '@prisma/client';
+import { IsOptional, IsString, MaxLength, MinLength, IsEmail, IsEnum } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+
+export class CreateUserDto {
+  @IsString() @MinLength(1) @MaxLength(80)
+  name: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString() @MinLength(6)
+  password: string;
+
+  @IsOptional() @IsEnum(UserRole)
+  role?: UserRole;
+}
 
 export class UpdateProfileDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(80)
@@ -41,13 +57,81 @@ export class UsersService {
         ...PUBLIC_SELECT,
         memberships: {
           where: { isActive: true },
-          select: { role: true, organization: { select: { id: true, name: true, slug: true, isPersonal: true } } },
+          select: { role: true, organization: { select: { id: true, name: true, slug: true, isPersonal: true, plan: true } } },
         },
         creditWallet: { select: { balance: true } },
       },
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async getDashboardStats(userId: string, role: string) {
+    const isSuperAdmin = role === 'SUPER_ADMIN';
+
+    // Admins get global stats
+    if (isSuperAdmin) {
+      const [activeUsers, organizations, totalUsage] = await Promise.all([
+        this.prisma.user.count({ where: { deletedAt: null, isSuspended: false } }),
+        this.prisma.organization.count({ where: { deletedAt: null } }),
+        this.prisma.creditTransaction.aggregate({
+          where: { type: 'CONSUMPTION' },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      return {
+        role: 'SUPER_ADMIN',
+        adminStats: {
+          activeUsers,
+          organizations,
+          totalUsage: totalUsage._sum.amount || 0,
+          systemHealth: 99.9, // mock for now
+        },
+      };
+    }
+
+    // Creators get their personal stats
+    const userOrg = await this.prisma.membership.findFirst({
+      where: { userId, isActive: true, organization: { isPersonal: true, deletedAt: null } },
+      select: { organizationId: true },
+    });
+
+    const orgId = userOrg?.organizationId;
+    if (!orgId) {
+      return { role: 'USER', creatorStats: { totalVideos: 0, scheduledPosts: 0, connectedAccounts: 0, creditsRemaining: 0 }, recentContent: [] };
+    }
+
+    const [totalVideos, scheduledPosts, connectedAccounts, wallet, recentContent] = await Promise.all([
+      this.prisma.video.count({ where: { organizationId: orgId } }),
+      this.prisma.socialPost.count({ where: { organizationId: orgId, status: 'SCHEDULED' } }),
+      this.prisma.socialAccount.count({ where: { organizationId: orgId } }),
+      this.prisma.creditWallet.findUnique({ where: { userId } }),
+      this.prisma.video.findMany({
+        where: { organizationId: orgId },
+        orderBy: { createdAt: 'desc' },
+        take: 4,
+        select: { id: true, title: true, platform: true, status: true, createdAt: true },
+      })
+    ]);
+
+    return {
+      role,
+      creatorStats: {
+        totalVideos,
+        scheduledPosts,
+        connectedAccounts,
+        creditsRemaining: wallet?.balance || 0,
+      },
+      recentContent: recentContent.map(v => ({
+        id: v.id,
+        title: v.title,
+        platform: v.platform || 'General',
+        status: v.status.toLowerCase(),
+        views: '-',
+        time: v.createdAt.toISOString(),
+      })),
+    };
   }
 
   updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -146,6 +230,61 @@ export class UsersService {
       });
 
       return updatedWallet;
+    });
+  }
+
+  async createUser(adminId: string, dto: CreateUserDto) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException('An account with this email already exists');
+    }
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    const name = dto.name.trim();
+    const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'user'}-${randomUUID().slice(0, 8)}`;
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          name,
+          displayName: name.split(' ')[0],
+          passwordHash,
+          role: dto.role ?? UserRole.USER,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+        },
+        select: PUBLIC_SELECT,
+      });
+      await tx.organization.create({
+        data: {
+          name: `${name}'s Workspace`,
+          slug,
+          isPersonal: true,
+          personalUserId: user.id,
+          plan: PlanTier.FREE,
+          memberships: {
+            create: { userId: user.id, role: MemberRole.OWNER },
+          },
+        },
+      });
+      await tx.creditWallet.create({
+        data: { userId: user.id, balance: 100, totalPurchased: 100 },
+      });
+      return user;
+    });
+  }
+
+  async deleteUser(adminId: string, targetUserId: string) {
+    if (adminId === targetUserId) {
+      throw new ForbiddenException('Cannot delete yourself');
+    }
+    const target = await this.prisma.user.findFirst({ where: { id: targetUserId, deletedAt: null } });
+    if (!target) throw new NotFoundException('User not found');
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { deletedAt: new Date() },
+      select: { id: true, deletedAt: true }
     });
   }
 }

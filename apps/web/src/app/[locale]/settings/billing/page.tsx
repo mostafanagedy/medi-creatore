@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAuthStore } from '@/stores/auth.store';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Zap, CheckCircle2, CreditCard, Sparkles, AlertCircle } from 'lucide-react';
+import { Zap, CheckCircle2, CreditCard, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
+import { toast } from 'sonner';
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -18,21 +19,35 @@ const stagger = {
 };
 
 export default function BillingPage() {
-  const { user } = useAuthStore();
-  const credits = user?.credits ?? 0;
-  const currentPlan = user?.plan ?? 'Starter';
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['profile'],
+    staleTime: 60000,
+    queryFn: async () => {
+      const response = await apiClient.get('/users/me');
+      return response.data?.data;
+    }
+  });
+
+  const credits = profile?.creditWallet?.balance ?? 0;
+  const organizationPlan = profile?.memberships?.find(
+    (membership: { organization?: { isPersonal?: boolean } }) => membership.organization?.isPersonal,
+  )?.organization?.plan;
+  const currentPlan =
+    organizationPlan === 'PRO'
+      ? 'Pro'
+      : organizationPlan === 'BUSINESS' || organizationPlan === 'ENTERPRISE'
+        ? 'Creator'
+        : 'Starter';
   const maxCredits = currentPlan === 'Pro' ? 50000 : currentPlan === 'Creator' ? 10000 : 1000;
   const usagePercentage = Math.min(Math.round(((maxCredits - credits) / maxCredits) * 100), 100);
 
-  const [isLoading, setIsLoading] = useState<string | null>(null);
-
-  const handleUpgrade = (plan: string) => {
-    setIsLoading(plan);
-    setTimeout(() => {
-      setIsLoading(null);
-      alert(`Redirecting to Stripe for ${plan} plan...`);
-    }, 1500);
+  const handleUpgrade = () => {
+    toast.error('Subscription checkout is not configured yet. No charge was made.');
   };
+
+  if (isProfileLoading) {
+    return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-10">
@@ -131,10 +146,10 @@ export default function BillingPage() {
             <CardFooter>
               <Button 
                 className="w-full bg-brand-gradient text-white border-0 hover:opacity-90"
-                onClick={() => handleUpgrade('Creator')}
-                disabled={!!isLoading || currentPlan === 'Creator'}
+                onClick={handleUpgrade}
+                disabled={currentPlan === 'Creator'}
               >
-                {currentPlan === 'Creator' ? 'Current Plan' : isLoading === 'Creator' ? 'Processing...' : 'Upgrade to Creator'}
+                {currentPlan === 'Creator' ? 'Current Plan' : 'Upgrade to Creator'}
               </Button>
             </CardFooter>
           </Card>
@@ -162,10 +177,10 @@ export default function BillingPage() {
               <Button 
                 variant="outline" 
                 className="w-full hover:bg-white/5"
-                onClick={() => handleUpgrade('Pro')}
-                disabled={!!isLoading || currentPlan === 'Pro'}
+                onClick={handleUpgrade}
+                disabled={currentPlan === 'Pro'}
               >
-                {currentPlan === 'Pro' ? 'Current Plan' : isLoading === 'Pro' ? 'Processing...' : 'Upgrade to Pro'}
+                {currentPlan === 'Pro' ? 'Current Plan' : 'Upgrade to Pro'}
               </Button>
             </CardFooter>
           </Card>

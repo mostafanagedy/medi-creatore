@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards, ForbiddenException } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -13,6 +13,14 @@ export class OrganizationsController {
   @Get()
   list(@CurrentUser() user: User) {
     return this.orgs.listForUser(user.id);
+  }
+
+  @Get('admin/all')
+  listAllForAdmin(@CurrentUser() user: User) {
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Administrator access required');
+    }
+    return this.orgs.listAllForAdmin();
   }
 
   @Post()
