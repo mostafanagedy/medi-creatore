@@ -3,12 +3,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OrganizationsService } from './organizations.service';
+import { InvitationsService } from './invitations.service';
 import { CreateOrganizationDto, InviteMemberDto, UpdateOrganizationDto } from './dto/organization.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly orgs: OrganizationsService) {}
+  constructor(
+    private readonly orgs: OrganizationsService,
+    private readonly invitations: InvitationsService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: User) {
@@ -56,5 +60,28 @@ export class OrganizationsController {
   @Delete(':id/members/:userId')
   removeMember(@CurrentUser() user: User, @Param('id') id: string, @Param('userId') memberId: string) {
     return this.orgs.removeMember(user.id, id, memberId);
+  }
+
+  @Get(':id/invitations')
+  listInvitations(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.invitations.listInvitations(id, user.id);
+  }
+
+  @Post(':id/invitations')
+  createInvitation(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.invitations.createInvitation(id, user.id, dto);
+  }
+
+  @Delete(':id/invitations/:invitationId')
+  revokeInvitation(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Param('invitationId') invitationId: string,
+  ) {
+    return this.invitations.revokeInvitation(id, user.id, invitationId);
   }
 }

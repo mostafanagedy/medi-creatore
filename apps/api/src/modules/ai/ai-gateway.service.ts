@@ -3,10 +3,10 @@ import {
   Logger,
   ServiceUnavailableException,
   BadRequestException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
-import { AITaskType } from '@prisma/client';
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { PrismaService } from "../prisma/prisma.service";
+import { AITaskType } from "@prisma/client";
 import type {
   TextProvider,
   ImageProvider,
@@ -17,6 +17,7 @@ import type {
   EmbeddingProvider,
   TextGenerationRequest,
   TextGenerationResponse,
+  TextProviderCallOptions,
   ImageGenerationRequest,
   ImageGenerationResponse,
   VideoGenerationRequest,
@@ -30,7 +31,9 @@ import type {
   AvatarGenerationRequest,
   AvatarGenerationResponse,
   AIModelTier,
-} from './interfaces/ai-provider.interface';
+} from "./interfaces/ai-provider.interface";
+import { AIProviderSettingsService } from "./ai-provider-settings.service";
+import { ANTHROPIC_PROVIDER_NAME } from "./ai-provider-settings.service";
 
 export interface GatewayRequestOptions {
   organizationId: string;
@@ -68,6 +71,7 @@ export class AIGatewayService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly providerSettings: AIProviderSettingsService,
   ) {}
 
   // ──────────────────────────────────────────────────────────
@@ -99,7 +103,10 @@ export class AIGatewayService {
     this.logger.log(`Avatar provider registered: ${name}`);
   }
 
-  registerTranscriptionProvider(name: string, provider: TranscriptionProvider): void {
+  registerTranscriptionProvider(
+    name: string,
+    provider: TranscriptionProvider,
+  ): void {
     this.providers.transcription.set(name, provider);
     this.logger.log(`Transcription provider registered: ${name}`);
   }
@@ -117,14 +124,14 @@ export class AIGatewayService {
     request: TextGenerationRequest,
     options: GatewayRequestOptions,
   ): Promise<TextGenerationResponse> {
-    const { provider, model } = await this.selectModel(AITaskType.TEXT_GENERATION, options);
-    const textProvider = this.providers.text.get(provider);
-
-    if (!textProvider || !textProvider.isAvailable) {
-      throw new ServiceUnavailableException(
-        `Text generation provider '${provider}' is not available. Please try again or contact support.`,
-      );
-    }
+    const credential = options.userId
+      ? await this.providerSettings.getAnthropicRuntimeCredential(
+          options.userId,
+        )
+      : null;
+    const { provider, model } = credential
+      ? { provider: ANTHROPIC_PROVIDER_NAME, model: credential.model }
+      : await this.selectModel(AITaskType.TEXT_GENERATION, options);
 
     const start = Date.now();
     let aiRequestId: string | undefined;
@@ -145,12 +152,29 @@ export class AIGatewayService {
         aiRequestId = aiRequest?.id;
       }
 
-      const response = await this.executeWithFallback(
-        () => textProvider.generateText(request),
-        AITaskType.TEXT_GENERATION,
-        options,
-        provider,
-      );
+      const executeText = async (pName: string, mName: string) => {
+        const p = this.providers.text.get(pName);
+        if (!p || (!p.isAvailable && !credential)) {
+          throw new ServiceUnavailableException(
+            `Text generation provider '${pName}' is not available. Please try again or contact support.`,
+          );
+        }
+        const callOptions: TextProviderCallOptions = {
+          model: mName,
+          ...(credential ? { apiKey: credential.apiKey } : {}),
+        };
+        return p.generateText(request, callOptions);
+      };
+
+      const response = credential
+        ? await executeText(provider, model)
+        : await this.executeWithFallback(
+            (p, m) => executeText(p, m),
+            AITaskType.TEXT_GENERATION,
+            options,
+            provider,
+            model,
+          );
 
       // Track completion
       if (aiRequestId) {
@@ -178,18 +202,27 @@ export class AIGatewayService {
     request: ImageGenerationRequest,
     options: GatewayRequestOptions,
   ): Promise<ImageGenerationResponse> {
-    const { provider } = await this.selectModel(AITaskType.IMAGE_GENERATION, options);
-    const imageProvider = this.providers.image.get(provider);
+    const { provider, model } = await this.selectModel(
+      AITaskType.IMAGE_GENERATION,
+      options,
+    );
 
-    if (!imageProvider?.isAvailable) {
-      throw new ServiceUnavailableException('Image generation is temporarily unavailable.');
-    }
+    const executeImage = (pName: string) => {
+      const p = this.providers.image.get(pName);
+      if (!p?.isAvailable) {
+        throw new ServiceUnavailableException(
+          `Image generation provider '${pName}' is not available.`,
+        );
+      }
+      return p.generateImage(request);
+    };
 
     return this.executeWithFallback(
-      () => imageProvider.generateImage(request),
+      (p) => executeImage(p),
       AITaskType.IMAGE_GENERATION,
       options,
       provider,
+      model,
     );
   }
 
@@ -201,29 +234,41 @@ export class AIGatewayService {
     request: VideoGenerationRequest,
     options: GatewayRequestOptions,
   ): Promise<VideoGenerationResponse> {
-    const { provider } = await this.selectModel(AITaskType.VIDEO_GENERATION, options);
-    const videoProvider = this.providers.video.get(provider);
+    const { provider, model } = await this.selectModel(
+      AITaskType.VIDEO_GENERATION,
+      options,
+    );
 
-    if (!videoProvider?.isAvailable) {
-      throw new ServiceUnavailableException(
-        'Video generation is temporarily unavailable. Please retry or select a different model.',
-      );
-    }
+    const executeVideo = (pName: string) => {
+      const p = this.providers.video.get(pName);
+      if (!p?.isAvailable) {
+        throw new ServiceUnavailableException(
+          `Video generation provider '${pName}' is not available. Please retry or select a different model.`,
+        );
+      }
+      return p.generateVideo(request);
+    };
 
     return this.executeWithFallback(
-      () => videoProvider.generateVideo(request),
+      (p) => executeVideo(p),
       AITaskType.VIDEO_GENERATION,
       options,
       provider,
+      model,
     );
   }
 
   async getVideoStatus(taskId: string, options: GatewayRequestOptions) {
-    const { provider } = await this.selectModel(AITaskType.VIDEO_GENERATION, options);
+    const { provider } = await this.selectModel(
+      AITaskType.VIDEO_GENERATION,
+      options,
+    );
     const videoProvider = this.providers.video.get(provider);
 
     if (!videoProvider?.isAvailable) {
-      throw new ServiceUnavailableException('Video status is temporarily unavailable.');
+      throw new ServiceUnavailableException(
+        "Video status is temporarily unavailable.",
+      );
     }
 
     return videoProvider.getVideoStatus(taskId);
@@ -237,18 +282,27 @@ export class AIGatewayService {
     request: VoiceGenerationRequest,
     options: GatewayRequestOptions,
   ): Promise<VoiceGenerationResponse> {
-    const { provider } = await this.selectModel(AITaskType.VOICE_GENERATION, options);
-    const voiceProvider = this.providers.voice.get(provider);
+    const { provider, model } = await this.selectModel(
+      AITaskType.VOICE_GENERATION,
+      options,
+    );
 
-    if (!voiceProvider?.isAvailable) {
-      throw new ServiceUnavailableException('Voice generation is temporarily unavailable.');
-    }
+    const executeVoice = (pName: string) => {
+      const p = this.providers.voice.get(pName);
+      if (!p?.isAvailable) {
+        throw new ServiceUnavailableException(
+          `Voice generation provider '${pName}' is not available.`,
+        );
+      }
+      return p.generateVoice(request);
+    };
 
     return this.executeWithFallback(
-      () => voiceProvider.generateVoice(request),
+      (p) => executeVoice(p),
       AITaskType.VOICE_GENERATION,
       options,
       provider,
+      model,
     );
   }
 
@@ -260,11 +314,16 @@ export class AIGatewayService {
     request: AvatarGenerationRequest,
     options: GatewayRequestOptions,
   ): Promise<AvatarGenerationResponse> {
-    const { provider } = await this.selectModel(AITaskType.AVATAR_GENERATION, options);
+    const { provider } = await this.selectModel(
+      AITaskType.AVATAR_GENERATION,
+      options,
+    );
     const avatarProvider = this.providers.avatar.get(provider);
 
     if (!avatarProvider?.isAvailable) {
-      throw new ServiceUnavailableException('Avatar generation is temporarily unavailable.');
+      throw new ServiceUnavailableException(
+        "Avatar generation is temporarily unavailable.",
+      );
     }
 
     return avatarProvider.generateAvatar(request);
@@ -278,11 +337,16 @@ export class AIGatewayService {
     request: TranscriptionRequest,
     options: GatewayRequestOptions,
   ): Promise<TranscriptionResponse> {
-    const { provider } = await this.selectModel(AITaskType.TRANSCRIPTION, options);
+    const { provider } = await this.selectModel(
+      AITaskType.TRANSCRIPTION,
+      options,
+    );
     const transcriptionProvider = this.providers.transcription.get(provider);
 
     if (!transcriptionProvider?.isAvailable) {
-      throw new ServiceUnavailableException('Transcription is temporarily unavailable.');
+      throw new ServiceUnavailableException(
+        "Transcription is temporarily unavailable.",
+      );
     }
 
     return transcriptionProvider.transcribe(request);
@@ -300,7 +364,9 @@ export class AIGatewayService {
     const embeddingProvider = this.providers.embedding.get(provider);
 
     if (!embeddingProvider?.isAvailable) {
-      throw new ServiceUnavailableException('Embedding service is temporarily unavailable.');
+      throw new ServiceUnavailableException(
+        "Embedding service is temporarily unavailable.",
+      );
     }
 
     return embeddingProvider.embed(request);
@@ -314,30 +380,47 @@ export class AIGatewayService {
     taskType: AITaskType,
     options: GatewayRequestOptions,
   ): Promise<{ provider: string; model: string }> {
-    const tier = options.preferredTier ?? 'standard';
+    const tier = options.preferredTier ?? "standard";
+    const providerCategory = this.getProviderType(taskType) as keyof ProviderRegistration;
+    const registeredProviders = this.providers[providerCategory];
 
     // Check if admin has configured routing in DB
-    const dbModel = await this.prisma.aIModel.findFirst({
+    const dbModels = await this.prisma.aIModel.findMany({
       where: {
         taskType,
         tier,
         isEnabled: true,
-        provider: { status: 'ACTIVE' },
+        provider: { status: "ACTIVE" },
       },
       include: { provider: true },
-      orderBy: [
-        { provider: { priority: 'asc' } },
-      ],
+      orderBy: [{ provider: { priority: "asc" } }],
     });
 
-    if (dbModel) {
-      return { provider: dbModel.provider.name, model: dbModel.name };
+    const availableModel = dbModels.find((m) => {
+      const p = registeredProviders?.get(m.provider.name);
+      return p && p.isAvailable;
+    });
+
+    if (availableModel) {
+      return { provider: availableModel.provider.name, model: availableModel.name };
+    }
+
+    // Check other registered providers (excluding mock)
+    if (registeredProviders) {
+      for (const [name, p] of registeredProviders.entries()) {
+        if (p.isAvailable && name !== "mock") {
+          return { provider: name, model: "default" };
+        }
+      }
     }
 
     // Fallback: use mock provider in development
-    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
-    if (nodeEnv === 'development' || nodeEnv === 'test') {
-      return { provider: 'mock', model: `mock-${this.getProviderType(taskType)}` };
+    const nodeEnv = this.configService.get<string>("NODE_ENV", "development");
+    if (nodeEnv === "development" || nodeEnv === "test") {
+      return {
+        provider: "mock",
+        model: `mock-${this.getProviderType(taskType)}`,
+      };
     }
 
     throw new BadRequestException(
@@ -347,53 +430,81 @@ export class AIGatewayService {
 
   private getProviderType(taskType: AITaskType): string {
     const map: Record<AITaskType, string> = {
-      TEXT_GENERATION: 'text',
-      IMAGE_GENERATION: 'image',
-      VIDEO_GENERATION: 'video',
-      VOICE_GENERATION: 'voice',
-      AVATAR_GENERATION: 'avatar',
-      TRANSCRIPTION: 'transcription',
-      TRANSLATION: 'text',
-      EMBEDDING: 'text',
-      ANALYSIS: 'text',
-      CAPTIONING: 'text',
+      TEXT_GENERATION: "text",
+      IMAGE_GENERATION: "image",
+      VIDEO_GENERATION: "video",
+      VOICE_GENERATION: "voice",
+      AVATAR_GENERATION: "avatar",
+      TRANSCRIPTION: "transcription",
+      TRANSLATION: "text",
+      EMBEDDING: "text",
+      ANALYSIS: "text",
+      CAPTIONING: "text",
     };
-    return map[taskType] ?? 'text';
+    return map[taskType] ?? "text";
   }
 
   private async executeWithFallback<T>(
-    fn: () => Promise<T>,
+    executor: (provider: string, model: string) => Promise<T>,
     taskType: AITaskType,
     options: GatewayRequestOptions,
     primaryProvider: string,
+    primaryModel: string,
   ): Promise<T> {
     try {
-      return await fn();
+      return await executor(primaryProvider, primaryModel);
     } catch (primaryError) {
       this.logger.warn(
         `Primary provider '${primaryProvider}' failed for ${taskType}: ${(primaryError as Error).message}. Attempting fallback...`,
       );
 
-      // Look for fallback in DB
-      const fallbackModel = await this.prisma.aIModel.findFirst({
+      const providerCategory = this.getProviderType(taskType) as keyof ProviderRegistration;
+      const registeredProviders = this.providers[providerCategory];
+
+      // Look for fallback models in DB
+      const fallbackModels = await this.prisma.aIModel.findMany({
         where: {
           taskType,
           isEnabled: true,
-          provider: { status: 'ACTIVE', name: { not: primaryProvider } },
+          provider: { status: "ACTIVE", name: { not: primaryProvider } },
         },
         include: { provider: true },
+        orderBy: [{ provider: { priority: "asc" } }],
       });
 
-      if (!fallbackModel) {
-        throw new ServiceUnavailableException(
-          `${taskType} generation failed and no fallback provider is available. Please try again later.`,
-        );
+      const nextModel = fallbackModels.find((m) => {
+        const p = registeredProviders?.get(m.provider.name);
+        return p && p.isAvailable;
+      });
+
+      if (nextModel) {
+        this.logger.log(`Using fallback provider from DB: ${nextModel.provider.name} (${nextModel.name})`);
+        return await executor(nextModel.provider.name, nextModel.name);
       }
 
-      this.logger.log(`Using fallback provider: ${fallbackModel.provider.name}`);
+      // Check other registered providers
+      if (registeredProviders) {
+        for (const [name, p] of registeredProviders.entries()) {
+          if (name !== primaryProvider && p.isAvailable && name !== "mock") {
+            this.logger.log(`Using fallback registered provider: ${name}`);
+            return await executor(name, "default");
+          }
+        }
+      }
 
-      // Execute with fallback (don't recurse further)
-      return fn(); // Re-use same fn but provider resolution would pick fallback on retry
+      // Fallback to mock in dev/test
+      const nodeEnv = this.configService.get<string>("NODE_ENV", "development");
+      if ((nodeEnv === "development" || nodeEnv === "test") && primaryProvider !== "mock") {
+        const mockP = registeredProviders?.get("mock");
+        if (mockP?.isAvailable) {
+          this.logger.log(`Using mock fallback provider`);
+          return await executor("mock", `mock-${providerCategory}`);
+        }
+      }
+
+      throw new ServiceUnavailableException(
+        `${taskType} generation failed and no fallback provider is available. Please try again later.`,
+      );
     }
   }
 
@@ -428,28 +539,31 @@ export class AIGatewayService {
           providerId: provider.id,
           modelId: model.id,
           taskType: data.taskType,
-          status: 'PENDING',
+          status: "PENDING",
           prompt: data.prompt,
           referenceType: data.referenceType,
           referenceId: data.referenceId,
         },
       });
     } catch (err) {
-      this.logger.error('Failed to track AI request start', err);
+      this.logger.error("Failed to track AI request start", err);
       return null;
     }
   }
 
-  private async trackRequestComplete(id: string, data: {
-    inputTokens?: number;
-    outputTokens?: number;
-    durationMs: number;
-  }) {
+  private async trackRequestComplete(
+    id: string,
+    data: {
+      inputTokens?: number;
+      outputTokens?: number;
+      durationMs: number;
+    },
+  ) {
     try {
       await this.prisma.aIRequest.update({
         where: { id },
         data: {
-          status: 'COMPLETED',
+          status: "COMPLETED",
           inputTokens: data.inputTokens,
           outputTokens: data.outputTokens,
           totalTokens: (data.inputTokens ?? 0) + (data.outputTokens ?? 0),
@@ -458,7 +572,7 @@ export class AIGatewayService {
         },
       });
     } catch (err) {
-      this.logger.error('Failed to track AI request completion', err);
+      this.logger.error("Failed to track AI request completion", err);
     }
   }
 
@@ -467,13 +581,13 @@ export class AIGatewayService {
       await this.prisma.aIRequest.update({
         where: { id },
         data: {
-          status: 'FAILED',
+          status: "FAILED",
           errorMessage: error.message,
           completedAt: new Date(),
         },
       });
     } catch (err) {
-      this.logger.error('Failed to track AI request failure', err);
+      this.logger.error("Failed to track AI request failure", err);
     }
   }
 
@@ -495,15 +609,17 @@ export class AIGatewayService {
 
   listConfiguredModels() {
     return this.prisma.aIModel.findMany({
-      include: { provider: { select: { name: true, displayName: true, status: true } } },
-      orderBy: [{ taskType: 'asc' }, { tier: 'asc' }, { displayName: 'asc' }],
+      include: {
+        provider: { select: { name: true, displayName: true, status: true } },
+      },
+      orderBy: [{ taskType: "asc" }, { tier: "asc" }, { displayName: "asc" }],
     });
   }
 
   listRecentRequests() {
     return this.prisma.aIRequest.findMany({
       take: 100,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         taskType: true,
@@ -525,17 +641,25 @@ export class AIGatewayService {
     const [totals, byProvider, byTask] = await Promise.all([
       this.prisma.aIRequest.aggregate({
         _count: { _all: true },
-        _sum: { actualCostUsd: true, estimatedCostUsd: true, creditsConsumed: true },
+        _sum: {
+          actualCostUsd: true,
+          estimatedCostUsd: true,
+          creditsConsumed: true,
+        },
       }),
       this.prisma.aIRequest.groupBy({
-        by: ['providerId'],
+        by: ["providerId"],
         _count: { _all: true },
         _sum: { actualCostUsd: true, estimatedCostUsd: true },
       }),
       this.prisma.aIRequest.groupBy({
-        by: ['taskType'],
+        by: ["taskType"],
         _count: { _all: true },
-        _sum: { actualCostUsd: true, estimatedCostUsd: true, creditsConsumed: true },
+        _sum: {
+          actualCostUsd: true,
+          estimatedCostUsd: true,
+          creditsConsumed: true,
+        },
       }),
     ]);
     const providerIds = byProvider.map((row) => row.providerId);
@@ -543,7 +667,9 @@ export class AIGatewayService {
       where: { id: { in: providerIds } },
       select: { id: true, displayName: true },
     });
-    const providerNames = new Map(providers.map((provider) => [provider.id, provider.displayName]));
+    const providerNames = new Map(
+      providers.map((provider) => [provider.id, provider.displayName]),
+    );
 
     return {
       totals: {

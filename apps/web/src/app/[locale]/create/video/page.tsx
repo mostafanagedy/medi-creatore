@@ -39,7 +39,11 @@ export default function CreateVideoPage() {
     enabled: Boolean(job?.taskId) && (job?.status === 'pending' || job?.status === 'processing'),
     queryFn: async () => {
       const response = await apiClient.get(`/ai/video/status/${job?.taskId}`);
-      return { ...response.data.data, provider: job?.provider ?? 'unknown' } as VideoJob;
+      const data = response.data?.data ?? response.data;
+      if (data?.status === 'completed' || data?.status === 'failed') {
+        queryClient.invalidateQueries({ queryKey: ['profile'] });
+      }
+      return { ...data, provider: data?.provider || job?.provider || 'runwayml' } as VideoJob;
     },
     refetchInterval: (query) => {
       const status = query.state.data?.status;
@@ -198,12 +202,20 @@ export default function CreateVideoPage() {
           <Clock className="h-5 w-5 text-primary" />
           Latest generation
         </h2>
-        {generateMutation.isError || statusQuery.isError ? (
+        {generateMutation.isError || statusQuery.isError || currentJob?.status === 'failed' ? (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Video generation failed</AlertTitle>
-            <AlertDescription>
-              {statusQuery.error instanceof Error ? statusQuery.error.message : 'Check your credits and configured video provider, then try again.'}
+            <AlertDescription className="space-y-1">
+              <p>
+                {currentJob?.errorMessage ||
+                  (statusQuery.error instanceof Error
+                    ? statusQuery.error.message
+                    : 'The video generation job could not be completed.')}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                The 50 credits have been refunded to your wallet.
+              </p>
             </AlertDescription>
           </Alert>
         ) : currentJob ? (
@@ -224,9 +236,7 @@ export default function CreateVideoPage() {
               <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Waiting for the provider to finish...</p>
             ) : currentJob.videoUrl ? (
               <video controls src={currentJob.videoUrl} className="max-h-[480px] w-full rounded-lg bg-black" />
-            ) : (
-              <p className="text-sm text-muted-foreground">{currentJob.errorMessage ?? 'The provider completed without returning a video URL.'}</p>
-            )}
+            ) : null}
           </div>
         ) : (
           <div className="glass-card flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 py-16 text-center text-muted-foreground">

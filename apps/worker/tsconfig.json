@@ -7,6 +7,14 @@
     "rootDir": "./src",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "baseUrl": "./",
+    "paths": {
+      "@ai-content-os/database": ["../../packages/database/dist/index.d.ts"],
+      "@ai-content-os/security": ["../../packages/security/dist/index.d.ts"],
+      "@ai-content-os/queues": ["../../packages/queues/dist/index.d.ts"],
+      "@ai-content-os/types": ["../../packages/types/src/index.ts"],
+      "@ai-content-os/types/*": ["../../packages/types/src/*"]
+    },
     "strictPropertyInitialization": false
   },
   "include": ["src/**/*"],

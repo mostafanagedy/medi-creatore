@@ -47,10 +47,13 @@ redis_data/
 uploads/
 tmp/
 
-# ── OS / Editor ──────────────────────────────────────────────
+# ── OS / Editor / Diagnostics ────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
+*:Zone.Identifier
+_tmp_*
+report.*.json
 .idea/
 .vscode/*
 !.vscode/extensions.json

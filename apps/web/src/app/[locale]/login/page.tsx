@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AuthVideoShowcase } from '@/components/auth/auth-video-showcase';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth.store';
@@ -195,15 +196,7 @@ export default function LoginPage() {
         {/* Background glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[100px] z-0" />
         
-        {/* Video grid layout */}
-        <div className="absolute inset-0 z-0 opacity-40 overflow-hidden pointer-events-none">
-          <div className="grid grid-cols-2 gap-6 h-[140%] w-[140%] -translate-x-[15%] -translate-y-[15%] -rotate-12">
-            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl brightness-75" />
-            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl translate-y-24 brightness-75" />
-            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl -translate-y-24 brightness-75" />
-            <video src="https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" autoPlay muted loop playsInline className="w-full h-full object-cover rounded-3xl shadow-2xl brightness-75" />
-          </div>
-        </div>
+        <AuthVideoShowcase />
 
         {/* Content overlay */}
         <div className="relative z-10 glass-card p-10 rounded-3xl max-w-md text-center border border-white/10 bg-background/60 backdrop-blur-xl shadow-2xl">

@@ -12,6 +12,9 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@ai-content-os/database": "workspace:*",
+    "@ai-content-os/queues": "workspace:*",
+    "@ai-content-os/security": "workspace:*",
     "@ai-content-os/types": "workspace:*",
     "@nestjs/bullmq": "^10.2.3",
     "@nestjs/common": "^10.4.0",

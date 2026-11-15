@@ -22,10 +22,13 @@ export type RunwayVideoStatus =
 @Injectable()
 export class RunwayVideoClient {
   private readonly apiKey: string | undefined;
-  private readonly baseUrl = 'https://api.runwayml.com/v1';
+  private readonly baseUrl: string;
 
   constructor(config: ConfigService) {
-    this.apiKey = config.get<string>('RUNWAYML_API_KEY');
+    const rawKey = config.get<string>('RUNWAYML_API_KEY') ?? process.env.RUNWAYML_API_KEY;
+    this.apiKey = rawKey?.trim() ? rawKey.trim() : undefined;
+    const rawUrl = config.get<string>('RUNWAYML_BASE_URL') ?? process.env.RUNWAYML_BASE_URL;
+    this.baseUrl = rawUrl?.trim() ? rawUrl.trim() : 'https://api.dev.runwayml.com/v1';
   }
 
   async createTask(input: VideoGenerationQueueInput): Promise<string> {
@@ -35,8 +38,8 @@ export class RunwayVideoClient {
     }
 
     const ratios: Record<string, string> = {
-      '16:9': '1280:768',
-      '9:16': '768:1280',
+      '16:9': '1280:720',
+      '9:16': '720:1280',
     };
     const requestedRatio = input.aspectRatio ?? '16:9';
     const ratio = ratios[requestedRatio];
@@ -44,17 +47,28 @@ export class RunwayVideoClient {
       throw new UnrecoverableError(`Runway does not support the requested aspect ratio: ${requestedRatio}.`);
     }
 
+    const promptText = [input.prompt || input.scriptText || '', input.style]
+      .filter((part): part is string => Boolean(part?.trim()))
+      .join('\nStyle and camera direction: ');
+
+    const isImageToVideo = Boolean(input.imageUrl);
+    const endpoint = isImageToVideo ? '/image_to_video' : '/text_to_video';
+
     const payload: Record<string, string | number> = {
-      model: 'gen3a_turbo',
-      promptText: [input.prompt || input.scriptText || '', input.style]
-        .filter((part): part is string => Boolean(part?.trim()))
-        .join('\nStyle and camera direction: '),
+      model: isImageToVideo ? 'gen4_turbo' : 'gen4.5',
       duration,
       ratio,
     };
-    if (input.imageUrl) payload.promptImage = input.imageUrl;
 
-    const result = await this.request<RunwayTaskCreated>('/image_to_video', {
+    if (promptText) {
+      payload.promptText = promptText;
+    }
+
+    if (input.imageUrl) {
+      payload.promptImage = input.imageUrl;
+    }
+
+    const result = await this.request<RunwayTaskCreated>(endpoint, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -90,14 +104,23 @@ export class RunwayVideoClient {
       signal: AbortSignal.timeout(30_000),
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        'X-Runway-Version': '2024-09-13',
+        'X-Runway-Version': '2024-11-06',
         'Content-Type': 'application/json',
         ...init.headers,
       },
     });
 
     if (!response.ok) {
-      const message = `Runway request failed with status ${response.status}.`;
+      let detail = '';
+      try {
+        const errorJson = (await response.json()) as { error?: string; message?: string };
+        detail = errorJson.error || errorJson.message || '';
+      } catch {
+        // Ignore json parse error
+      }
+      const message = detail
+        ? `Runway: ${detail}`
+        : `Runway request failed with status ${response.status}.`;
       if (response.status < 500 && response.status !== 429) {
         throw new UnrecoverableError(message);
       }

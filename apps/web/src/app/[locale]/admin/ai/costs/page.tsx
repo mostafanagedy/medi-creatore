@@ -10,7 +10,7 @@ type UsageSummary = {
   providers: Array<{ name: string; requests: number; actualCostUsd: number | string; estimatedCostUsd: number | string }>;
   tasks: Array<{ taskType: string; requests: number; actualCostUsd: number | string; estimatedCostUsd: number | string; creditsConsumed: number }>;
 };
-
+ 
 const currency = (value: number | string | null | undefined) => `$${Number(value ?? 0).toFixed(2)}`;
 
 export default function AdminAICostsPage() {

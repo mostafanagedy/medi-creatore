@@ -25,6 +25,11 @@ export interface TextGenerationResponse {
   durationMs: number;
 }
 
+export interface TextProviderCallOptions {
+  apiKey?: string;
+  model?: string;
+}
+
 // ──────────────────────────────────────────────────────────
 
 export interface ImageGenerationRequest {
@@ -33,7 +38,7 @@ export interface ImageGenerationRequest {
   width?: number;
   height?: number;
   aspectRatio?: string;
-  quality?: 'standard' | 'hd';
+  quality?: "standard" | "hd";
   style?: string;
   numberOfImages?: number;
   referenceImageUrl?: string;
@@ -66,8 +71,8 @@ export interface VideoGenerationRequest {
 
 export interface VideoGenerationResponse {
   videoUrl?: string;
-  taskId?: string;          // For async generation
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  taskId?: string; // For async generation
+  status: "pending" | "processing" | "completed" | "failed";
   estimatedCompletionMs?: number;
   model: string;
   provider: string;
@@ -76,7 +81,7 @@ export interface VideoGenerationResponse {
 
 export interface VideoGenerationStatusResponse {
   taskId: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: "pending" | "processing" | "completed" | "failed";
   videoUrl?: string;
   progress?: number;
   errorMessage?: string;
@@ -88,12 +93,12 @@ export interface VoiceGenerationRequest {
   text: string;
   voiceId?: string;
   language?: string;
-  gender?: 'male' | 'female' | 'neutral';
+  gender?: "male" | "female" | "neutral";
   style?: string;
   emotion?: string;
-  speed?: number;          // 0.5 - 2.0
-  pitch?: number;          // -20 to 20 semitones
-  outputFormat?: 'mp3' | 'wav' | 'ogg';
+  speed?: number; // 0.5 - 2.0
+  pitch?: number; // -20 to 20 semitones
+  outputFormat?: "mp3" | "wav" | "ogg";
 }
 
 export interface VoiceGenerationResponse {
@@ -130,7 +135,7 @@ export interface AvatarGenerationRequest {
 export interface AvatarGenerationResponse {
   videoUrl?: string;
   taskId?: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: "pending" | "processing" | "completed" | "failed";
   model: string;
   provider: string;
   durationMs: number;
@@ -151,8 +156,8 @@ export interface TranscriptionRequest {
   audioBuffer?: Buffer;
   language?: string;
   prompt?: string;
-  format?: 'text' | 'json' | 'srt' | 'vtt';
-  timestampGranularity?: 'word' | 'segment';
+  format?: "text" | "json" | "srt" | "vtt";
+  timestampGranularity?: "word" | "segment";
 }
 
 export interface TranscriptionResponse {
@@ -190,33 +195,44 @@ export interface EmbeddingResponse {
 // Provider capability interfaces — implement only what the provider supports
 
 export interface TextProvider {
-  generateText(request: TextGenerationRequest): Promise<TextGenerationResponse>;
+  generateText(
+    request: TextGenerationRequest,
+    options?: TextProviderCallOptions,
+  ): Promise<TextGenerationResponse>;
   readonly providerName: string;
   readonly isAvailable: boolean;
 }
 
 export interface ImageProvider {
-  generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
+  generateImage(
+    request: ImageGenerationRequest,
+  ): Promise<ImageGenerationResponse>;
   readonly providerName: string;
   readonly isAvailable: boolean;
 }
 
 export interface VideoProvider {
-  generateVideo(request: VideoGenerationRequest): Promise<VideoGenerationResponse>;
+  generateVideo(
+    request: VideoGenerationRequest,
+  ): Promise<VideoGenerationResponse>;
   getVideoStatus(taskId: string): Promise<VideoGenerationStatusResponse>;
   readonly providerName: string;
   readonly isAvailable: boolean;
 }
 
 export interface VoiceProvider {
-  generateVoice(request: VoiceGenerationRequest): Promise<VoiceGenerationResponse>;
+  generateVoice(
+    request: VoiceGenerationRequest,
+  ): Promise<VoiceGenerationResponse>;
   listVoices(): Promise<Voice[]>;
   readonly providerName: string;
   readonly isAvailable: boolean;
 }
 
 export interface AvatarProvider {
-  generateAvatar(request: AvatarGenerationRequest): Promise<AvatarGenerationResponse>;
+  generateAvatar(
+    request: AvatarGenerationRequest,
+  ): Promise<AvatarGenerationResponse>;
   listAvatars(): Promise<Avatar[]>;
   readonly providerName: string;
   readonly isAvailable: boolean;
@@ -238,13 +254,13 @@ export interface EmbeddingProvider {
 
 // AI Provider registry types
 export type AIProviderCapability =
-  | 'text'
-  | 'image'
-  | 'video'
-  | 'voice'
-  | 'avatar'
-  | 'transcription'
-  | 'embedding';
+  | "text"
+  | "image"
+  | "video"
+  | "voice"
+  | "avatar"
+  | "transcription"
+  | "embedding";
 
 export interface AIProviderConfig {
   name: string;
@@ -258,7 +274,7 @@ export interface AIProviderConfig {
 }
 
 // Task-to-tier routing config
-export type AIModelTier = 'cheap' | 'standard' | 'premium';
+export type AIModelTier = "cheap" | "standard" | "premium";
 
 export interface AIRoutingConfig {
   task: string;

@@ -5,6 +5,7 @@ import type { VideoGenerationJobData } from '@ai-content-os/types/worker-jobs';
 import { QUEUE_NAMES } from '../queues/queue-names';
 import { PrismaService } from '../prisma/prisma.service';
 import { RunwayVideoClient } from './runway-video.client';
+import { ReplicateVideoClient } from './replicate-video.client';
 
 @Processor(QUEUE_NAMES.VIDEO_GENERATION)
 export class VideoGenerationProcessor extends WorkerHost {
@@ -16,6 +17,7 @@ export class VideoGenerationProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly runway: RunwayVideoClient,
+    private readonly replicate: ReplicateVideoClient,
     @InjectQueue(QUEUE_NAMES.VIDEO_GENERATION)
     private readonly videoQueue: Queue<VideoGenerationJobData>,
   ) {
@@ -56,7 +58,40 @@ export class VideoGenerationProcessor extends WorkerHost {
     }
 
     const existingTaskId = this.getProviderTaskId(video.metadata);
-    const providerTaskId = existingTaskId ?? (await this.runway.createTask(data.input));
+    let providerTaskId = existingTaskId;
+    let providerName = (this.asMetadata(video.metadata).provider as string) || (this.replicate.isAvailable ? 'replicate' : 'runwayml');
+
+    if (!providerTaskId) {
+      const useReplicate = this.replicate.isAvailable;
+      try {
+        if (useReplicate) {
+          providerName = 'replicate';
+          providerTaskId = await this.replicate.createTask(data.input);
+        } else {
+          providerName = 'runwayml';
+          providerTaskId = await this.runway.createTask(data.input);
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const isExternalProviderError =
+          errMsg.includes('not have enough credits') ||
+          errMsg.includes('Insufficient credit') ||
+          errMsg.includes('credits') ||
+          errMsg.includes('not configured') ||
+          errMsg.includes('key_') ||
+          errMsg.includes('Runway') ||
+          errMsg.includes('Replicate');
+
+        const allowMock = process.env.NODE_ENV !== 'production' || process.env.ENABLE_MOCK_AI === 'true';
+        if (allowMock && isExternalProviderError) {
+          this.logger.warn(`External video generation failed (${errMsg}). Falling back to mock demo video.`);
+          providerTaskId = `mock-task-${Date.now()}`;
+          providerName = 'mock';
+        } else {
+          throw err;
+        }
+      }
+    }
 
     await this.prisma.video.update({
       where: { id: data.videoId },
@@ -64,7 +99,7 @@ export class VideoGenerationProcessor extends WorkerHost {
         status: 'PROCESSING',
         metadata: {
           ...this.asMetadata(video.metadata),
-          provider: 'runwayml',
+          provider: providerName,
           providerTaskId,
         },
       },
@@ -90,7 +125,51 @@ export class VideoGenerationProcessor extends WorkerHost {
       throw new UnrecoverableError('Video generation exceeded the maximum processing time.');
     }
 
-    const result = await this.runway.getTaskStatus(data.providerTaskId);
+    // Handle Mock demo generation in development
+    if (data.providerTaskId.startsWith('mock-task-')) {
+      if (data.pollAttempt < 1) {
+        await this.prisma.video.updateMany({
+          where: { id: data.videoId, status: { in: ['QUEUED', 'PROCESSING'] } },
+          data: {
+            status: 'PROCESSING',
+            metadata: {
+              ...this.asMetadata(video.metadata),
+              provider: 'mock',
+              providerTaskId: data.providerTaskId,
+              progress: 60,
+            },
+          },
+        });
+        await this.schedulePoll(data, data.providerTaskId, data.pollAttempt + 1);
+        return { status: 'processing', progress: 60 };
+      }
+
+      const demoUrl = '/videos/flower-demo.mp4';
+      await this.prisma.video.updateMany({
+        where: { id: data.videoId, status: { in: ['QUEUED', 'PROCESSING'] } },
+        data: {
+          status: 'COMPLETED',
+          fileUrl: demoUrl,
+          errorMessage: null,
+          metadata: {
+            ...this.asMetadata(video.metadata),
+            provider: 'mock',
+            providerTaskId: data.providerTaskId,
+            progress: 100,
+          },
+        },
+      });
+      return { status: 'completed', videoUrl: demoUrl };
+    }
+
+    const metaProvider = this.asMetadata(video.metadata).provider as string | undefined;
+    const currentProvider =
+      metaProvider ||
+      (data.providerTaskId.includes('runway') ? 'runwayml' : (this.replicate.isAvailable ? 'replicate' : 'runwayml'));
+    const result = currentProvider === 'replicate'
+      ? await this.replicate.getTaskStatus(data.providerTaskId)
+      : await this.runway.getTaskStatus(data.providerTaskId);
+
     if (result.status === 'completed') {
       await this.prisma.video.updateMany({
         where: { id: data.videoId, status: { in: ['QUEUED', 'PROCESSING'] } },
@@ -100,7 +179,7 @@ export class VideoGenerationProcessor extends WorkerHost {
           errorMessage: null,
           metadata: {
             ...this.asMetadata(video.metadata),
-            provider: 'runwayml',
+            provider: currentProvider,
             providerTaskId: data.providerTaskId,
             progress: 100,
           },
@@ -119,7 +198,7 @@ export class VideoGenerationProcessor extends WorkerHost {
         status: 'PROCESSING',
         metadata: {
           ...this.asMetadata(video.metadata),
-          provider: 'runwayml',
+          provider: currentProvider,
           providerTaskId: data.providerTaskId,
           progress: result.progress ?? null,
         },

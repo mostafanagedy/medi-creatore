@@ -15,9 +15,11 @@ export class RunwayMLProvider implements VideoProvider, ImageProvider {
   private readonly logger = new Logger(RunwayMLProvider.name);
   readonly providerName = 'runwayml';
   private readonly apiKey: string | undefined;
+  private readonly baseUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('RUNWAYML_API_KEY');
+    this.baseUrl = this.configService.get<string>('RUNWAYML_BASE_URL', 'https://api.dev.runwayml.com/v1');
     if (this.apiKey) {
       this.logger.log('RunwayML provider initialized');
     } else {
@@ -35,19 +37,30 @@ export class RunwayMLProvider implements VideoProvider, ImageProvider {
     if (!this.apiKey) throw new Error('RunwayML not configured');
 
     const start = Date.now();
-    
-    // We default to image_to_video if imageUrl is present, otherwise text_to_video (gen3a is primarily video)
-    const endpoint = 'https://api.runwayml.com/v1/image_to_video';
+    const isImageToVideo = Boolean(request.imageUrl);
+    const endpoint = `${this.baseUrl}${isImageToVideo ? '/image_to_video' : '/text_to_video'}`;
+
+    const ratios: Record<string, string> = {
+      '16:9': '1280:720',
+      '9:16': '720:1280',
+    };
+    const ratio = (request.aspectRatio && ratios[request.aspectRatio]) ? ratios[request.aspectRatio] : '1280:720';
 
     const payload: Record<string, any> = {
-      model: 'gen3a_turbo', // Default RunwayML Gen-3 Alpha model
-      promptText: request.prompt || request.scriptText || '',
+      model: isImageToVideo ? 'gen4_turbo' : 'gen4.5',
+      duration: request.durationSec ?? 5,
+      ratio,
     };
+
+    const promptText = request.prompt || request.scriptText || '';
+    if (promptText) {
+      payload.promptText = promptText;
+    }
 
     if (request.imageUrl) {
       payload.promptImage = request.imageUrl;
     }
-    
+
     if (request.seed) {
       payload.seed = request.seed;
     }
@@ -56,16 +69,22 @@ export class RunwayMLProvider implements VideoProvider, ImageProvider {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        'X-Runway-Version': '2024-09-13',
+        'X-Runway-Version': '2024-11-06',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`RunwayML API error: ${response.status} ${errorText}`);
-      throw new Error(`RunwayML API error: ${response.statusText}`);
+      let detail = '';
+      try {
+        const errJson = (await response.json()) as Record<string, any>;
+        detail = errJson?.error || errJson?.message || '';
+      } catch {
+        detail = await response.text();
+      }
+      this.logger.error(`RunwayML API error: ${response.status} ${detail}`);
+      throw new Error(`RunwayML API error: ${detail || response.statusText}`);
     }
 
     const data: any = await response.json();
@@ -82,11 +101,11 @@ export class RunwayMLProvider implements VideoProvider, ImageProvider {
   async getVideoStatus(taskId: string): Promise<VideoGenerationStatusResponse> {
     if (!this.apiKey) throw new Error('RunwayML not configured');
 
-    const response = await fetch(`https://api.runwayml.com/v1/tasks/${taskId}`, {
+    const response = await fetch(`${this.baseUrl}/tasks/${taskId}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        'X-Runway-Version': '2024-09-13',
+        'X-Runway-Version': '2024-11-06',
       },
     });
 
