@@ -21,13 +21,14 @@ import { MediaModule } from './modules/media/media.module';
 import { ScriptsModule } from './modules/scripts/scripts.module';
 import { HealthModule } from './modules/health/health.module';
 import { SocialModule } from './modules/social/social.module';
+import { ContentModule } from './modules/content/content.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: ['.env.local', '.env', '../../.env.local', '../../.env'],
       validate: validateConfig,
     }),
     EventEmitterModule.forRoot(),
@@ -46,6 +47,7 @@ import { SocialModule } from './modules/social/social.module';
     ScriptsModule,
     HealthModule,
     SocialModule,
+    ContentModule,
   ],
 })
 export class AppModule {}

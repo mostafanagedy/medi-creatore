@@ -5,6 +5,7 @@ import type {
   TextProvider,
   TextGenerationRequest,
   TextGenerationResponse,
+  TextProviderCallOptions,
 } from '../interfaces/ai-provider.interface';
 
 @Injectable()
@@ -31,7 +32,10 @@ export class OmnirouteProvider implements TextProvider {
 
   // ── Text Generation ──
 
-  async generateText(request: TextGenerationRequest): Promise<TextGenerationResponse> {
+  async generateText(
+    request: TextGenerationRequest,
+    options: TextProviderCallOptions = {},
+  ): Promise<TextGenerationResponse> {
     if (!this.client) throw new Error('Omniroute not configured');
 
     const start = Date.now();
@@ -42,8 +46,11 @@ export class OmnirouteProvider implements TextProvider {
     }
     messages.push({ role: 'user', content: request.prompt });
 
+    const configuredModel = this.configService.get<string>('OMNIROUTE_MODEL', 'auto/chat');
+    const model = options.model && options.model !== 'default' ? options.model : configuredModel;
+
     const response = await this.client.chat.completions.create({
-      model: 'gpt-4o-mini', // Update if omniroute requires a specific model
+      model,
       messages,
       max_tokens: request.maxTokens ?? 2048,
       temperature: request.temperature ?? 0.7,

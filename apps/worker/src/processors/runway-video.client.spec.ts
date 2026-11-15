@@ -10,7 +10,7 @@ describe('RunwayVideoClient', () => {
       new Response(JSON.stringify({ id: 'runway-task-1' }), { status: 200 }),
     );
     const client = new RunwayVideoClient({
-      get: jest.fn().mockReturnValue('runway-secret'),
+      get: jest.fn().mockImplementation((key: string, def?: string) => (key === 'RUNWAYML_API_KEY' ? 'runway-secret' : def)),
     } as unknown as ConfigService);
 
     await expect(client.createTask({
@@ -21,18 +21,18 @@ describe('RunwayVideoClient', () => {
     })).resolves.toBe('runway-task-1');
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.runwayml.com/v1/image_to_video',
+      'https://api.dev.runwayml.com/v1/text_to_video',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
           Authorization: 'Bearer runway-secret',
-          'X-Runway-Version': '2024-09-13',
+          'X-Runway-Version': '2024-11-06',
         }),
         body: JSON.stringify({
-          model: 'gen3a_turbo',
-          promptText: 'A sunrise over the sea\nStyle and camera direction: cinematic',
+          model: 'gen4.5',
           duration: 10,
-          ratio: '768:1280',
+          ratio: '720:1280',
+          promptText: 'A sunrise over the sea\nStyle and camera direction: cinematic',
         }),
       }),
     );

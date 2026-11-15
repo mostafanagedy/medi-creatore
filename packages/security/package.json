@@ -1,0 +1,26 @@
+{
+  "name": "@ai-content-os/security",
+  "version": "0.1.0",
+  "description": "Security utilities: encryption, token hashing, secret redaction for AI Content OS",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "node init && tsc",
+    "dev": "node init && tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "@ai-content-os/tsconfig": "workspace:*",
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.0",
+    "rimraf": "^5.0.0"
+  }
+}

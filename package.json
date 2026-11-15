@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.0.0",
-  "description": "AI Content Operating System — AI-powered content creation, video generation, and social media management SaaS",
+  "description": "AI Content Operating System \u2014 AI-powered content creation, video generation, and social media management SaaS",
   "scripts": {
-    "build": "npx turbo run build",
-    "dev": "npx turbo run dev",
+    "build": "node init && npx turbo run build",
+    "dev": "node init && npx turbo run dev",
     "lint": "npx turbo run lint",
     "lint:fix": "npx turbo run lint:fix",
     "typecheck": "npx turbo run typecheck",
@@ -19,7 +19,8 @@
     "db:migrate": "npx turbo run db:migrate",
     "db:seed": "npx turbo run db:seed",
     "docker:dev": "docker-compose -f docker-compose.yml up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "omniroute": "node apps/omniroute/start.js"
   },
   "devDependencies": {
     "prettier": "^3.3.0",

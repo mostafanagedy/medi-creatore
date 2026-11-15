@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npx next dev --port 3000",
-    "build": "npx next build",
-    "start": "npx next start",
+    "dev": "node init && next dev --port 3000",
+    "build": "node init && npx next build",
+    "start": "node init && npx next start",
     "lint": "npx next lint",
     "lint:fix": "next lint --fix",
     "typecheck": "tsc --noEmit",

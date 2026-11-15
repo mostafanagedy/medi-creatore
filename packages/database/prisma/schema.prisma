@@ -32,7 +32,7 @@ enum MemberRole {
 
 enum SubscriptionStatus {
   ACTIVE
-  INACTIVE 
+  INACTIVE
   PAST_DUE
   CANCELED
   TRIALING
@@ -215,60 +215,108 @@ enum ToneType {
   DRAMATIC
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+enum CircuitBreakerStatus {
+  CLOSED   // Normal operation
+  OPEN     // Tripped — no new jobs allowed
+  HALF_OPEN // Testing recovery
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+}
+
+enum PublishingJobStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum UsagePeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ANNUAL
+}
+
 // ==================================================
 // USER & AUTH
 // ==================================================
 
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
-  emailVerified     Boolean  @default(false)
-  emailVerifiedAt   DateTime?
-  passwordHash      String?
-  name              String
-  displayName       String?
-  avatarUrl         String?
-  role              UserRole @default(USER)
-  isActive          Boolean  @default(true)
-  isSuspended       Boolean  @default(false)
-  suspendedAt       DateTime?
-  suspendedReason   String?
-  locale            String   @default("en")
-  timezone          String   @default("UTC")
-  lastLoginAt       DateTime?
-  lastLoginIp       String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  deletedAt         DateTime?
+  id              String    @id @default(uuid())
+  email           String    @unique
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  passwordHash    String?
+  name            String
+  displayName     String?
+  avatarUrl       String?
+  role            UserRole  @default(USER)
+  isActive        Boolean   @default(true)
+  isSuspended     Boolean   @default(false)
+  suspendedAt     DateTime?
+  suspendedReason String?
+  locale          String    @default("en")
+  timezone        String    @default("UTC")
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   // Relations
-  sessions          Session[]
-  memberships       Membership[]
-  oauthAccounts     OAuthAccount[]
-  passwordResets    PasswordReset[]
-  emailVerifications EmailVerification[]
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  creditWallet      CreditWallet?
-  personalOrg       Organization?     @relation("PersonalOrg")
-  
+  sessions              Session[]
+  memberships           Membership[]
+  oauthAccounts         OAuthAccount[]
+  passwordResets        PasswordReset[]
+  emailVerifications    EmailVerification[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+  creditWallet          CreditWallet?
+  personalOrg           Organization?              @relation("PersonalOrg")
+  aiProviderCredentials UserAIProviderCredential[]
+  sentInvitations       Invitation[]               @relation("SentInvitations")
+
   @@index([email])
   @@index([createdAt])
   @@map("users")
 }
 
 model Session {
-  id           String   @id @default(uuid())
-  userId       String
-  token        String   @unique
-  refreshToken String   @unique
-  userAgent    String?
-  ipAddress    String?
-  expiresAt    DateTime
+  id               String   @id @default(uuid())
+  userId           String
+  token            String   @unique
+  refreshToken     String   @unique
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
   refreshExpiresAt DateTime
-  isValid      Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isValid          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -279,20 +327,20 @@ model Session {
 }
 
 model OAuthAccount {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   userId         String
   provider       String
   providerUserId String
   email          String?
   name           String?
   avatarUrl      String?
-  accessToken    String?  // encrypted
-  refreshToken   String?  // encrypted
+  accessToken    String? // encrypted
+  refreshToken   String? // encrypted
   expiresAt      DateTime?
   scope          String?
   rawProfile     Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -302,12 +350,12 @@ model OAuthAccount {
 }
 
 model PasswordReset {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  token     String   @unique
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -316,12 +364,12 @@ model PasswordReset {
 }
 
 model EmailVerification {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
-  token     String   @unique
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -334,34 +382,40 @@ model EmailVerification {
 // ==================================================
 
 model Organization {
-  id           String   @id @default(uuid())
-  name         String
-  slug         String   @unique
-  description  String?
-  logoUrl      String?
-  website      String?
-  industry     String?
-  isPersonal   Boolean  @default(false)
-  personalUserId String? @unique
-  plan         PlanTier @default(FREE)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
+  id             String    @id @default(uuid())
+  name           String
+  slug           String    @unique
+  description    String?
+  logoUrl        String?
+  website        String?
+  industry       String?
+  isPersonal     Boolean   @default(false)
+  personalUserId String?   @unique
+  plan           PlanTier  @default(FREE)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   // Relations
-  personalUser   User?          @relation("PersonalOrg", fields: [personalUserId], references: [id])
-  memberships    Membership[]
-  projects       Project[]
-  assets         Asset[]
-  socialAccounts SocialAccount[]
-  brandProfile   BrandProfile?
-  subscription   Subscription?
-  posts          SocialPost[]
-  templates      Template[]
-  aiRequests     AIRequest[]
-  auditLogs      AuditLog[]
-  featureFlags   OrgFeatureFlag[]
+  personalUser    User?            @relation("PersonalOrg", fields: [personalUserId], references: [id])
+  memberships     Membership[]
+  invitations     Invitation[]
+  projects        Project[]
+  assets          Asset[]
+  socialAccounts  SocialAccount[]
+  brandProfile    BrandProfile?
+  subscription    Subscription?
+  posts           SocialPost[]
+  templates       Template[]
+  aiRequests      AIRequest[]
+  auditLogs       AuditLog[]
+  featureFlags    OrgFeatureFlag[]
+  creditBalance   OrgCreditBalance?
+  usageLimits     UsageLimit[]
+  circuitBreakers AICircuitBreaker[]
+  contentItems    Content[]
+  notifications   Notification[]
 
   @@index([slug])
   @@index([createdAt])
@@ -369,16 +423,16 @@ model Organization {
 }
 
 model Membership {
-  id             String     @id @default(uuid())
-  userId         String
-  organizationId String
-  role           MemberRole @default(MEMBER)
+  id              String     @id @default(uuid())
+  userId          String
+  organizationId  String
+  role            MemberRole @default(MEMBER)
   invitedByUserId String?
-  invitedAt      DateTime   @default(now())
-  acceptedAt     DateTime?
-  isActive       Boolean    @default(true)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  invitedAt       DateTime   @default(now())
+  acceptedAt      DateTime?
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -389,33 +443,59 @@ model Membership {
   @@map("memberships")
 }
 
+// Invitation: secure token-based invite to an organization
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String
+  role           MemberRole       @default(MEMBER)
+  status         InvitationStatus @default(PENDING)
+  /// bcrypt/argon2 hash of the raw token sent via email
+  tokenHash      String           @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("SentInvitations", fields: [invitedById], references: [id])
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([expiresAt])
+  @@map("invitations")
+}
+
 // ==================================================
 // BILLING & SUBSCRIPTIONS
 // ==================================================
 
 model Plan {
-  id                String   @id @default(uuid())
-  name              String
-  tier              PlanTier @unique
-  description       String?
-  monthlyPrice      Decimal  @default(0)
-  yearlyPrice       Decimal  @default(0)
-  stripePriceIdMonthly String?
-  stripePriceIdYearly  String?
-  monthlyCredits    Int      @default(0)
-  storageGb         Int      @default(1)
-  maxProjects       Int      @default(3)
-  maxSocialAccounts Int      @default(1)
-  maxTeamMembers    Int      @default(1)
-  maxVideoResolution String  @default("720p")
-  maxVideoDurationSec Int    @default(60)
-  analyticsRetentionDays Int @default(30)
-  allowedAIModels   String[] @default([])
-  features          Json     @default("{}")
-  isActive          Boolean  @default(true)
-  sortOrder         Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  name                   String
+  tier                   PlanTier @unique
+  description            String?
+  monthlyPrice           Decimal  @default(0)
+  yearlyPrice            Decimal  @default(0)
+  stripePriceIdMonthly   String?
+  stripePriceIdYearly    String?
+  monthlyCredits         Int      @default(0)
+  storageGb              Int      @default(1)
+  maxProjects            Int      @default(3)
+  maxSocialAccounts      Int      @default(1)
+  maxTeamMembers         Int      @default(1)
+  maxVideoResolution     String   @default("720p")
+  maxVideoDurationSec    Int      @default(60)
+  analyticsRetentionDays Int      @default(30)
+  allowedAIModels        String[] @default([])
+  features               Json     @default("{}")
+  isActive               Boolean  @default(true)
+  sortOrder              Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   subscriptions Subscription[]
 
@@ -449,18 +529,18 @@ model Subscription {
 }
 
 model Payment {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   subscriptionId  String?
   organizationId  String?
-  stripePaymentId String?  @unique
+  stripePaymentId String?   @unique
   stripeInvoiceId String?
   amount          Decimal
-  currency        String   @default("usd")
+  currency        String    @default("usd")
   status          String
   description     String?
   metadata        Json?
   paidAt          DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
 
@@ -483,7 +563,7 @@ model CreditWallet {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions CreditTransaction[]
 
   @@map("credit_wallets")
@@ -494,9 +574,9 @@ model CreditTransaction {
   walletId      String
   type          CreditTransactionType
   amount        Int
-  balance       Int                   // balance after transaction
+  balance       Int // balance after transaction
   description   String?
-  referenceType String?               // "ai_request", "purchase", etc.
+  referenceType String? // "ai_request", "purchase", etc.
   referenceId   String?
   expiresAt     DateTime?
   metadata      Json?
@@ -510,17 +590,105 @@ model CreditTransaction {
 }
 
 model CreditUsageRule {
-  id          String   @id @default(uuid())
-  taskType    AITaskType
-  tier        String   // "basic", "standard", "premium"
+  id             String     @id @default(uuid())
+  taskType       AITaskType
+  tier           String // "basic", "standard", "premium"
   creditsPerUnit Int
-  unitType    String   // "request", "token_1k", "second", "image"
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  unitType       String // "request", "token_1k", "second", "image"
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@unique([taskType, tier])
   @@map("credit_usage_rules")
+}
+
+// Organization-level credit balance with reservation semantics (not user-level)
+// Implements: reserve → commit / release lifecycle
+model OrgCreditBalance {
+  id               String   @id @default(uuid())
+  organizationId   String   @unique
+  /// Credits available for new operations
+  available        BigInt   @default(0)
+  /// Credits reserved (subtracted from available but not yet committed)
+  reserved         BigInt   @default(0)
+  /// Total credits ever granted to this org
+  lifetimeGranted  BigInt   @default(0)
+  /// Total credits ever consumed (committed) by this org
+  lifetimeConsumed BigInt   @default(0)
+  updatedAt        DateTime @updatedAt
+
+  organization         Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  orgCreditTransactions OrgCreditTransaction[]
+
+  @@map("org_credit_balances")
+}
+
+// Transactional ledger for org-level credit operations
+model OrgCreditTransaction {
+  id               String               @id @default(uuid())
+  orgBalanceId     String
+  type             CreditTransactionType
+  amount           BigInt
+  balanceAfter     BigInt
+  /// Unique key to make credit operations idempotent
+  idempotencyKey   String               @unique
+  description      String?
+  referenceType    String? // "ai_job", "subscription_renewal", "admin_grant"
+  referenceId      String?
+  metadata         Json?
+  createdAt        DateTime             @default(now())
+
+  orgBalance OrgCreditBalance @relation(fields: [orgBalanceId], references: [id], onDelete: Cascade)
+
+  @@index([orgBalanceId])
+  @@index([createdAt])
+  @@index([referenceType, referenceId])
+  @@map("org_credit_transactions")
+}
+
+// Per-organization usage limits (e.g. 100 AI images/day, 10GB storage/month)
+model UsageLimit {
+  id             String      @id @default(uuid())
+  organizationId String
+  /// Metric identifier e.g. "ai_images_generated", "storage_bytes", "video_seconds"
+  metricKey      String
+  limitValue     Decimal
+  period         UsagePeriod @default(MONTHLY)
+  /// Alert when usage exceeds this % of the limit (0-100)
+  alertThreshold Int         @default(80)
+  isEnabled      Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, metricKey, period])
+  @@index([organizationId])
+  @@map("usage_limits")
+}
+
+// AI spend circuit breaker — stops all AI jobs when spend exceeds the limit
+model AICircuitBreaker {
+  id              String               @id @default(uuid())
+  organizationId  String
+  /// "org" for org-wide, "provider:openai" for provider-specific
+  scope           String               @default("org")
+  status          CircuitBreakerStatus @default(CLOSED)
+  /// USD spend limit for the window
+  spendLimitUsd   Decimal
+  /// Accumulated spend in current window
+  currentSpendUsd Decimal              @default(0)
+  windowStartedAt DateTime             @default(now())
+  tripCount       Int                  @default(0)
+  lastTrippedAt   DateTime?
+  updatedAt       DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, scope])
+  @@index([organizationId])
+  @@map("ai_circuit_breakers")
 }
 
 // ==================================================
@@ -535,43 +703,60 @@ model AIProvider {
   status          AIProviderStatus @default(ACTIVE)
   apiKeyEncrypted String?
   baseUrl         String?
-  config          Json?            // provider-specific configuration
+  config          Json? // provider-specific configuration
   supportedTasks  AITaskType[]
   priority        Int              @default(0)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  models     AIModel[]
-  requests   AIRequest[]
+  models   AIModel[]
+  requests AIRequest[]
 
   @@map("ai_providers")
 }
 
-model AIModel {
-  id               String   @id @default(uuid())
-  providerId       String
-  name             String
-  displayName      String
-  description      String?
-  taskType         AITaskType
-  tier             String   @default("standard") // cheap/standard/premium
-  isEnabled        Boolean  @default(true)
-  maxTokens        Int?
-  contextWindow    Int?
-  costPer1kTokensInput  Decimal @default(0)
-  costPer1kTokensOutput Decimal @default(0)
-  costPerRequest   Decimal  @default(0)
-  costPerImage     Decimal  @default(0)
-  costPerSecond    Decimal  @default(0)
-  fallbackModelId  String?
-  config           Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model UserAIProviderCredential {
+  id              String    @id @default(uuid())
+  userId          String
+  provider        String
+  model           String
+  apiKeyEncrypted String
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  provider       AIProvider @relation(fields: [providerId], references: [id])
-  fallbackModel  AIModel?   @relation("ModelFallback", fields: [fallbackModelId], references: [id])
-  fallbackFor    AIModel[]  @relation("ModelFallback")
-  requests       AIRequest[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("user_ai_provider_credentials")
+}
+
+model AIModel {
+  id                    String     @id @default(uuid())
+  providerId            String
+  name                  String
+  displayName           String
+  description           String?
+  taskType              AITaskType
+  tier                  String     @default("standard") // cheap/standard/premium
+  isEnabled             Boolean    @default(true)
+  maxTokens             Int?
+  contextWindow         Int?
+  costPer1kTokensInput  Decimal    @default(0)
+  costPer1kTokensOutput Decimal    @default(0)
+  costPerRequest        Decimal    @default(0)
+  costPerImage          Decimal    @default(0)
+  costPerSecond         Decimal    @default(0)
+  fallbackModelId       String?
+  config                Json?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  provider      AIProvider  @relation(fields: [providerId], references: [id])
+  fallbackModel AIModel?    @relation("ModelFallback", fields: [fallbackModelId], references: [id])
+  fallbackFor   AIModel[]   @relation("ModelFallback")
+  requests      AIRequest[]
 
   @@unique([providerId, name])
   @@index([taskType, tier])
@@ -579,28 +764,28 @@ model AIModel {
 }
 
 model AIRequest {
-  id              String          @id @default(uuid())
-  organizationId  String
-  userId          String?
-  providerId      String
-  modelId         String
-  taskType        AITaskType
-  status          AIRequestStatus @default(PENDING)
-  prompt          String?
-  inputTokens     Int?
-  outputTokens    Int?
-  totalTokens     Int?
-  durationMs      Int?
-  creditsConsumed Int             @default(0)
-  estimatedCostUsd Decimal        @default(0)
-  actualCostUsd   Decimal?
-  referenceType   String?         // "script", "video", "image", etc.
-  referenceId     String?
-  errorCode       String?
-  errorMessage    String?
-  metadata        Json?
-  completedAt     DateTime?
-  createdAt       DateTime        @default(now())
+  id               String          @id @default(uuid())
+  organizationId   String
+  userId           String?
+  providerId       String
+  modelId          String
+  taskType         AITaskType
+  status           AIRequestStatus @default(PENDING)
+  prompt           String?
+  inputTokens      Int?
+  outputTokens     Int?
+  totalTokens      Int?
+  durationMs       Int?
+  creditsConsumed  Int             @default(0)
+  estimatedCostUsd Decimal         @default(0)
+  actualCostUsd    Decimal?
+  referenceType    String? // "script", "video", "image", etc.
+  referenceId      String?
+  errorCode        String?
+  errorMessage     String?
+  metadata         Json?
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id])
   provider     AIProvider   @relation(fields: [providerId], references: [id])
@@ -617,29 +802,30 @@ model AIRequest {
 // ==================================================
 
 model Project {
-  id             String        @id @default(uuid())
-  organizationId String
+  id              String        @id @default(uuid())
+  organizationId  String
   createdByUserId String
-  name           String
-  description    String?
-  status         ProjectStatus @default(DRAFT)
-  coverImageUrl  String?
-  tags           String[]      @default([])
-  metadata       Json?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  deletedAt      DateTime?
+  name            String
+  description     String?
+  status          ProjectStatus @default(DRAFT)
+  coverImageUrl   String?
+  tags            String[]      @default([])
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  scripts    Script[]
-  videos     Video[]
-  audios     Audio[]
-  images     Image[]
-  thumbnails Thumbnail[]
-  captions   Caption[]
-  posts      SocialPost[]
-  assets     Asset[]
+  scripts      Script[]
+  videos       Video[]
+  audios       Audio[]
+  images       Image[]
+  thumbnails   Thumbnail[]
+  captions     Caption[]
+  posts        SocialPost[]
+  assets       Asset[]
+  contentItems Content[]
 
   @@index([organizationId])
   @@index([status])
@@ -647,40 +833,136 @@ model Project {
 }
 
 // ==================================================
+// CONTENT (Unified Content Entity)
+// ==================================================
+
+/// Canonical content item — scripts, images, videos, etc. are children of this
+model Content {
+  id             String        @id @default(uuid())
+  organizationId String
+  projectId      String?
+  brandProfileId String?
+  createdById    String
+  type           ContentType
+  title          String
+  status         ContentStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  publishedAt    DateTime?
+  tags           String[]      @default([])
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project?        @relation(fields: [projectId], references: [id])
+  brandProfile   BrandProfile?   @relation(fields: [brandProfileId], references: [id])
+  versions       ContentVersion[]
+  socialPosts    SocialPost[]
+  calendarEvents ContentCalendarEvent[]
+  moderations    ModerationResult[]
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("contents")
+}
+
+/// Immutable snapshot of a content item at a point in time
+model ContentVersion {
+  id            String   @id @default(uuid())
+  contentId     String
+  versionNumber Int
+  /// Full body / payload of the version — varies by content type
+  body          String
+  metadata      Json?
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, versionNumber])
+  @@index([contentId])
+  @@map("content_versions")
+}
+
+/// AI-powered content moderation result
+model ModerationResult {
+  id            String           @id @default(uuid())
+  contentId     String
+  status        ModerationStatus @default(PENDING)
+  /// Provider that performed moderation (e.g. "openai", "anthropic")
+  provider      String?
+  categories    Json?            // { hate: 0.01, violence: 0.00, ... }
+  policyVersion String?
+  rawResponse   Json?
+  createdAt     DateTime         @default(now())
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId])
+  @@index([status])
+  @@map("moderation_results")
+}
+
+/// Content calendar event — links a content item to a calendar slot
+model ContentCalendarEvent {
+  id             String    @id @default(uuid())
+  organizationId String
+  projectId      String?
+  contentId      String?
+  title          String
+  startsAt       DateTime
+  endsAt         DateTime?
+  status         String    @default("planned") // planned, completed, skipped
+  color          String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  content Content? @relation(fields: [contentId], references: [id])
+
+  @@index([organizationId])
+  @@index([startsAt])
+  @@map("content_calendar_events")
+}
+
+// ==================================================
 // SCRIPTS
 // ==================================================
 
 model Script {
-  id             String   @id @default(uuid())
-  organizationId String
-  projectId      String?
-  createdByUserId String
-  title          String
-  topic          String?
-  platform       SocialPlatform?
-  language       String   @default("en")
-  dialect        String?
-  contentType    ContentType?
-  targetAudience String?
-  tone           ToneType?
-  durationSec    Int?
-  goal           String?
-  cta            String?
-  keywords       String[] @default([])
-  brandVoiceId   String?
-  content        Json     // { hook, intro, mainPoints, story, cta, outro, full }
-  wordCount      Int?
+  id                   String          @id @default(uuid())
+  organizationId       String
+  projectId            String?
+  createdByUserId      String
+  title                String
+  topic                String?
+  platform             SocialPlatform?
+  language             String          @default("en")
+  dialect              String?
+  contentType          ContentType?
+  targetAudience       String?
+  tone                 ToneType?
+  durationSec          Int?
+  goal                 String?
+  cta                  String?
+  keywords             String[]        @default([])
+  brandVoiceId         String?
+  content              Json // { hook, intro, mainPoints, story, cta, outro, full }
+  wordCount            Int?
   estimatedDurationSec Int?
-  aiRequestId    String?
-  version        Int      @default(1)
-  isPublished    Boolean  @default(false)
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  aiRequestId          String?
+  version              Int             @default(1)
+  isPublished          Boolean         @default(false)
+  metadata             Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
-  project   Project?   @relation(fields: [projectId], references: [id])
-  brandVoice BrandVoice? @relation(fields: [brandVoiceId], references: [id])
-  versions  ScriptVersion[]
+  project    Project?        @relation(fields: [projectId], references: [id])
+  brandVoice BrandVoice?     @relation(fields: [brandVoiceId], references: [id])
+  versions   ScriptVersion[]
 
   @@index([organizationId])
   @@index([projectId])
@@ -705,15 +987,15 @@ model ScriptVersion {
 // ==================================================
 
 model Video {
-  id              String      @id @default(uuid())
+  id              String          @id @default(uuid())
   organizationId  String
   projectId       String?
   createdByUserId String
   title           String
   description     String?
-  status          VideoStatus @default(DRAFT)
-  resolution      String?     // "1920x1080"
-  aspectRatio     String?     // "16:9"
+  status          VideoStatus     @default(DRAFT)
+  resolution      String? // "1920x1080"
+  aspectRatio     String? // "16:9"
   durationSec     Int?
   fps             Int?
   fileUrl         String?
@@ -732,10 +1014,10 @@ model Video {
   exportFormats   Json?
   metadata        Json?
   publishedAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  project  Project?  @relation(fields: [projectId], references: [id])
+  project  Project?     @relation(fields: [projectId], references: [id])
   scenes   VideoScene[]
   captions Caption[]
 
@@ -749,8 +1031,8 @@ model VideoScene {
   id          String   @id @default(uuid())
   videoId     String
   order       Int
-  type        String   // "text", "image", "video", "transition"
-  content     Json     // scene content/prompt
+  type        String // "text", "image", "video", "transition"
+  content     Json // scene content/prompt
   durationSec Float?
   imageUrl    String?
   videoUrl    String?
@@ -840,7 +1122,7 @@ model Image {
 // ==================================================
 
 model Thumbnail {
-  id              String   @id @default(uuid())
+  id              String          @id @default(uuid())
   organizationId  String
   projectId       String?
   videoId         String?
@@ -855,10 +1137,10 @@ model Thumbnail {
   width           Int?
   height          Int?
   aiRequestId     String?
-  isSelected      Boolean  @default(false)
+  isSelected      Boolean         @default(false)
   metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   project Project? @relation(fields: [projectId], references: [id])
 
@@ -872,23 +1154,23 @@ model Thumbnail {
 // ==================================================
 
 model Caption {
-  id              String   @id @default(uuid())
+  id              String          @id @default(uuid())
   organizationId  String
   projectId       String?
   videoId         String?
   createdByUserId String
-  type            String   @default("subtitle") // "subtitle", "social_caption"
+  type            String          @default("subtitle") // "subtitle", "social_caption"
   platform        SocialPlatform?
-  language        String   @default("en")
-  content         String   // Full caption text
-  segments        Json?    // [{start, end, text}] for subtitles
-  hashtags        String[] @default([])
+  language        String          @default("en")
+  content         String // Full caption text
+  segments        Json? // [{start, end, text}] for subtitles
+  hashtags        String[]        @default([])
   charCount       Int?
   wordCount       Int?
   aiRequestId     String?
   metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   project Project? @relation(fields: [projectId], references: [id])
   video   Video?   @relation(fields: [videoId], references: [id])
@@ -903,29 +1185,29 @@ model Caption {
 // ==================================================
 
 model Asset {
-  id              String    @id @default(uuid())
-  organizationId  String
-  projectId       String?
+  id               String    @id @default(uuid())
+  organizationId   String
+  projectId        String?
   uploadedByUserId String
-  name            String
-  originalName    String
-  type            MediaType
-  mimeType        String
-  fileUrl         String
-  storageKey      String
-  fileSize        BigInt
-  width           Int?
-  height          Int?
-  durationSec     Float?
-  thumbnailUrl    String?
-  folderId        String?
-  tags            String[]  @default([])
-  description     String?
-  isPublic        Boolean   @default(false)
-  metadata        Json?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  name             String
+  originalName     String
+  type             MediaType
+  mimeType         String
+  fileUrl          String
+  storageKey       String
+  fileSize         BigInt
+  width            Int?
+  height           Int?
+  durationSec      Float?
+  thumbnailUrl     String?
+  folderId         String?
+  tags             String[]  @default([])
+  description      String?
+  isPublic         Boolean   @default(false)
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id])
   project      Project?     @relation(fields: [projectId], references: [id])
@@ -958,29 +1240,29 @@ model AssetFolder {
 // ==================================================
 
 model SocialAccount {
-  id               String         @id @default(uuid())
-  organizationId   String
-  platform         SocialPlatform
-  accountId        String         // platform's account/page/channel ID
-  username         String?
-  displayName      String?
-  profileUrl       String?
-  avatarUrl        String?
-  accessTokenEnc   String?        // encrypted
-  refreshTokenEnc  String?        // encrypted
-  tokenExpiresAt   DateTime?
-  scope            String?
-  isActive         Boolean        @default(true)
-  isExpired        Boolean        @default(false)
-  lastSyncAt       DateTime?
-  followerCount    Int?
-  followingCount   Int?
-  postCount        Int?
-  metadata         Json?          // platform-specific data
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id              String         @id @default(uuid())
+  organizationId  String
+  platform        SocialPlatform
+  accountId       String // platform's account/page/channel ID
+  username        String?
+  displayName     String?
+  profileUrl      String?
+  avatarUrl       String?
+  accessTokenEnc  String? // encrypted
+  refreshTokenEnc String? // encrypted
+  tokenExpiresAt  DateTime?
+  scope           String?
+  isActive        Boolean        @default(true)
+  isExpired       Boolean        @default(false)
+  lastSyncAt      DateTime?
+  followerCount   Int?
+  followingCount  Int?
+  postCount       Int?
+  metadata        Json? // platform-specific data
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   posts        SocialPost[]
   analytics    AnalyticsSnapshot[]
 
@@ -997,6 +1279,7 @@ model SocialPost {
   id              String         @id @default(uuid())
   organizationId  String
   projectId       String?
+  contentId       String?        // optional link to unified Content entity
   createdByUserId String
   socialAccountId String
   platform        SocialPlatform
@@ -1004,22 +1287,25 @@ model SocialPost {
   caption         String?
   hashtags        String[]       @default([])
   mediaUrls       String[]       @default([])
-  platformPostId  String?        // ID returned after publishing
-  platformUrl     String?        // URL of published post
+  platformPostId  String? // ID returned after publishing
+  platformUrl     String? // URL of published post
   scheduledAt     DateTime?
   publishedAt     DateTime?
   failedAt        DateTime?
   failureReason   String?
   retryCount      Int            @default(0)
   idempotencyKey  String?        @unique
-  metadata        Json?          // platform-specific fields
+  metadata        Json? // platform-specific fields
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  organization  Organization  @relation(fields: [organizationId], references: [id])
-  project       Project?      @relation(fields: [projectId], references: [id])
-  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id])
-  analytics     AnalyticsSnapshot[]
+  organization    Organization        @relation(fields: [organizationId], references: [id])
+  project         Project?            @relation(fields: [projectId], references: [id])
+  content         Content?            @relation(fields: [contentId], references: [id])
+  socialAccount   SocialAccount       @relation(fields: [socialAccountId], references: [id])
+  analytics       AnalyticsSnapshot[]
+  publishingResults SocialPostResult[]
+  publishingJobs    PublishingJob[]
 
   @@index([organizationId])
   @@index([socialAccountId])
@@ -1027,6 +1313,63 @@ model SocialPost {
   @@index([scheduledAt])
   @@map("social_posts")
 }
+
+/// Detailed result record from each publishing attempt
+model SocialPostResult {
+  id               String   @id @default(uuid())
+  socialPostId     String
+  publishingJobId  String?  // optional link back to the job
+  /// Whether this attempt succeeded
+  success          Boolean  @default(false)
+  /// Post ID as returned by the social platform
+  platformPostId   String?
+  /// Publicly accessible URL of the published post
+  platformUrl      String?
+  /// Publicly accessible URL of the published post (legacy alias)
+  permalink        String?
+  status           String   // "success", "failed", "rate_limited"
+  /// Raw JSON response from the platform API
+  responseMetadata Json?
+  rawResponse      String?  // stringified JSON for large responses
+  errorCode        String?
+  errorMessage     String?
+  attemptNumber    Int      @default(1)
+  createdAt        DateTime @default(now())
+
+  socialPost   SocialPost    @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
+  publishingJob PublishingJob? @relation(fields: [publishingJobId], references: [id])
+
+  @@index([socialPostId])
+  @@index([publishingJobId])
+  @@map("social_post_results")
+}
+
+/// Publishing job — tracks scheduling, retries, backoff for a SocialPost
+model PublishingJob {
+  id              String              @id @default(uuid())
+  socialPostId    String
+  status          PublishingJobStatus @default(PENDING)
+  attempts        Int                 @default(0)
+  maxAttempts     Int                 @default(5)
+  scheduledFor    DateTime?           // when the job is due to run
+  nextAttemptAt   DateTime?
+  lastAttemptAt   DateTime?
+  completedAt     DateTime?           // when it finished (success or final fail)
+  errorCode       String?             // last error code
+  errorMessage    String?
+  platformPostId  String?             // platform post ID after success
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  socialPost SocialPost         @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
+  results    SocialPostResult[]
+
+  @@index([socialPostId])
+  @@index([status, nextAttemptAt])
+  @@map("publishing_jobs")
+}
+
 
 // ==================================================
 // ANALYTICS
@@ -1068,28 +1411,29 @@ model AnalyticsSnapshot {
 // ==================================================
 
 model BrandProfile {
-  id             String    @id @default(uuid())
-  organizationId String    @unique
-  brandName      String?
-  description    String?
-  industry       String?
-  niche          String?
-  targetAudience String?
-  language       String    @default("en")
-  primaryColor   String?
-  secondaryColor String?
-  fontPrimary    String?
-  fontSecondary  String?
-  logoUrl        String?
-  cta            String?
-  keywords       String[]  @default([])
-  forbiddenWords String[]  @default([])
+  id               String   @id @default(uuid())
+  organizationId   String   @unique
+  brandName        String?
+  description      String?
+  industry         String?
+  niche            String?
+  targetAudience   String?
+  language         String   @default("en")
+  primaryColor     String?
+  secondaryColor   String?
+  fontPrimary      String?
+  fontSecondary    String?
+  logoUrl          String?
+  cta              String?
+  keywords         String[] @default([])
+  forbiddenWords   String[] @default([])
   preferredPhrases String[] @default([])
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   brandVoices  BrandVoice[]
+  contentItems Content[]
 
   @@map("brand_profiles")
 }
@@ -1100,7 +1444,7 @@ model BrandVoice {
   name           String
   toneType       ToneType
   description    String?
-  instructions   String?  // custom AI instructions
+  instructions   String? // custom AI instructions
   examples       String[] @default([])
   isDefault      Boolean  @default(false)
   createdAt      DateTime @default(now())
@@ -1118,22 +1462,22 @@ model BrandVoice {
 // ==================================================
 
 model Template {
-  id             String         @id @default(uuid())
-  organizationId String?        // null = global template
+  id              String          @id @default(uuid())
+  organizationId  String? // null = global template
   createdByUserId String?
-  name           String
-  description    String?
-  type           String         // "video", "script", "caption", "thumbnail", etc.
-  platform       SocialPlatform?
-  contentType    ContentType?
-  content        Json           // template content with variables
-  variables      String[]       @default([]) // ["topic", "hook", "cta"]
-  thumbnailUrl   String?
-  isPublic       Boolean        @default(false)
-  useCount       Int            @default(0)
-  metadata       Json?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  name            String
+  description     String?
+  type            String // "video", "script", "caption", "thumbnail", etc.
+  platform        SocialPlatform?
+  contentType     ContentType?
+  content         Json // template content with variables
+  variables       String[]        @default([]) // ["topic", "hook", "cta"]
+  thumbnailUrl    String?
+  isPublic        Boolean         @default(false)
+  useCount        Int             @default(0)
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   organization Organization? @relation(fields: [organizationId], references: [id])
 
@@ -1164,7 +1508,7 @@ model Job {
   startedAt      DateTime?
   completedAt    DateTime?
   failedAt       DateTime?
-  bullJobId      String?   // BullMQ job ID
+  bullJobId      String? // BullMQ job ID
   referenceType  String?
   referenceId    String?
   metadata       Json?
@@ -1195,9 +1539,11 @@ model Notification {
   emailSentAt    DateTime?
   createdAt      DateTime         @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
+  @@index([organizationId])
   @@index([createdAt])
   @@map("notifications")
 }
@@ -1269,43 +1615,43 @@ model OrgFeatureFlag {
 // ==================================================
 
 model ContentIdea {
-  id             String         @id @default(uuid())
-  organizationId String
-  createdByUserId String
-  title          String
-  hook           String?
-  description    String?
-  platform       SocialPlatform?
-  contentType    ContentType?
-  contentPillar  String?
-  estimatedDifficulty String?   // "easy", "medium", "hard"
-  cta            String?
-  isSaved        Boolean        @default(false)
-  isUsed         Boolean        @default(false)
-  metadata       Json?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                  String          @id @default(uuid())
+  organizationId      String
+  createdByUserId     String
+  title               String
+  hook                String?
+  description         String?
+  platform            SocialPlatform?
+  contentType         ContentType?
+  contentPillar       String?
+  estimatedDifficulty String? // "easy", "medium", "hard"
+  cta                 String?
+  isSaved             Boolean         @default(false)
+  isUsed              Boolean         @default(false)
+  metadata            Json?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   @@index([organizationId])
   @@map("content_ideas")
 }
 
 model ContentPlan {
-  id             String   @id @default(uuid())
-  organizationId String
+  id              String           @id @default(uuid())
+  organizationId  String
   createdByUserId String
-  name           String
-  startDate      DateTime
-  endDate        DateTime
-  platforms      SocialPlatform[]
-  frequency      Json     // { monday: [...], tuesday: [...] }
-  niche          String?
-  goals          String[] @default([])
-  contentPillars String[] @default([])
-  isActive       Boolean  @default(true)
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  platforms       SocialPlatform[]
+  frequency       Json // { monday: [...], tuesday: [...] }
+  niche           String?
+  goals           String[]         @default([])
+  contentPillars  String[]         @default([])
+  isActive        Boolean          @default(true)
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   items ContentPlanItem[]
 
@@ -1337,16 +1683,16 @@ model ContentPlanItem {
 // ==================================================
 
 model WebhookEvent {
-  id          String   @id @default(uuid())
-  source      String   // "stripe", "meta", "youtube", etc.
+  id          String    @id @default(uuid())
+  source      String // "stripe", "meta", "youtube", etc.
   eventType   String
   payload     Json
   signature   String?
-  isProcessed Boolean  @default(false)
+  isProcessed Boolean   @default(false)
   processedAt DateTime?
   error       String?
-  retryCount  Int      @default(0)
-  createdAt   DateTime @default(now())
+  retryCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
 
   @@index([source, isProcessed])
   @@index([createdAt])

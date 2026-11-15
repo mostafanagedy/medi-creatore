@@ -1,14 +1,19 @@
-import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-import { useAuthStore } from '@/stores/auth.store';
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+} from "axios";
+import { useAuthStore } from "@/stores/auth.store";
 
-const API_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001/api/v1';
-export const API_ROOT_URL = API_URL.replace(/\/api\/v1\/?$/, '');
+const API_URL =
+  process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001/api/v1";
+export const API_ROOT_URL = API_URL.replace(/\/api\/v1\/?$/, "");
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   withCredentials: true,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   timeout: 30000,
 });
@@ -41,9 +46,15 @@ function onTokenRefreshed(token: string) {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes("/auth/refresh")
+    ) {
       originalRequest._retry = true;
 
       if (!isRefreshing) {
@@ -55,7 +66,8 @@ apiClient.interceptors.response.use(
             { withCredentials: true },
           );
 
-          const newToken = (response.data as { data: { accessToken: string } }).data.accessToken;
+          const newToken = (response.data as { data: { accessToken: string } })
+            .data.accessToken;
           useAuthStore.getState().setAccessToken(newToken);
           onTokenRefreshed(newToken);
           isRefreshing = false;
@@ -66,8 +78,8 @@ apiClient.interceptors.response.use(
           isRefreshing = false;
           refreshSubscribers = [];
           useAuthStore.getState().logout();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+          if (typeof window !== "undefined") {
+            window.location.href = "/login";
           }
           return Promise.reject(error);
         }

@@ -30,11 +30,11 @@ export class OpenAIProvider
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (apiKey) {
+    if (apiKey && !apiKey.startsWith('sk-your-') && !apiKey.includes('change-me') && !apiKey.includes('your-')) {
       this.client = new OpenAI({ apiKey });
       this.logger.log('OpenAI provider initialized');
     } else {
-      this.logger.warn('OPENAI_API_KEY not configured — OpenAI provider disabled');
+      this.logger.warn('OPENAI_API_KEY not configured or has placeholder — OpenAI provider disabled');
     }
   }
 

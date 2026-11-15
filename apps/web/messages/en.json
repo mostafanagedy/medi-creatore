@@ -75,6 +75,7 @@
     "settings": "SETTINGS",
     "profile": "Profile",
     "security": "Security",
+    "aiProviderSettings": "AI Provider Settings",
     "billingCredits": "Billing & Credits",
     "notifications": "Notifications",
     "admin": "ADMIN",

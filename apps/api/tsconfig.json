@@ -9,7 +9,9 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "paths": {
-      "@ai-content-os/database": ["../../packages/database/src/index.ts"]
+      "@ai-content-os/database": ["../../packages/database/dist/index.d.ts"],
+      "@ai-content-os/security": ["../../packages/security/dist/index.d.ts"],
+      "@ai-content-os/queues": ["../../packages/queues/dist/index.d.ts"]
     },
     "strictPropertyInitialization": false
   },

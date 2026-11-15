@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { QUEUE_NAMES } from './queues/queue-names';
 import { VideoGenerationProcessor } from './processors/video-generation.processor';
 import { RunwayVideoClient } from './processors/runway-video.client';
+import { ReplicateVideoClient } from './processors/replicate-video.client';
 import { VideoRenderingProcessor } from './processors/video-rendering.processor';
 import {
   AudioGenerationProcessor,
@@ -33,7 +34,7 @@ const queueRegistrations = Object.values(QUEUE_NAMES).map((name) => ({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['../../.env.local', '../../.env'],
+      envFilePath: ['.env.local', '.env', '../../.env.local', '../../.env'],
     }),
     BullModule.forRootAsync({
       inject: [ConfigService],
@@ -58,6 +59,7 @@ const queueRegistrations = Object.values(QUEUE_NAMES).map((name) => ({
   providers: [
     VideoGenerationProcessor,
     RunwayVideoClient,
+    ReplicateVideoClient,
     VideoRenderingProcessor,
     AudioGenerationProcessor,
     ImageGenerationProcessor,

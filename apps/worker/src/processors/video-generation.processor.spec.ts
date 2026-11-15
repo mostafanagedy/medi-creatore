@@ -4,8 +4,15 @@ import type { VideoGenerationJobData } from '@ai-content-os/types/worker-jobs';
 import { PrismaService } from '../prisma/prisma.service';
 import { VideoGenerationProcessor } from './video-generation.processor';
 import { RunwayVideoClient } from './runway-video.client';
+import { ReplicateVideoClient } from './replicate-video.client';
 
 describe('VideoGenerationProcessor', () => {
+  const mockReplicate = {
+    isAvailable: false,
+    createTask: jest.fn(),
+    getTaskStatus: jest.fn(),
+  } as unknown as ReplicateVideoClient;
+
   it('ignores jobs when their owning video record no longer exists', async () => {
     const prisma = {
       video: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -14,6 +21,7 @@ describe('VideoGenerationProcessor', () => {
     const processor = new VideoGenerationProcessor(
       prisma,
       {} as RunwayVideoClient,
+      mockReplicate,
       queue,
     );
     const job = {
@@ -45,7 +53,7 @@ describe('VideoGenerationProcessor', () => {
       createTask: jest.fn().mockResolvedValue('runway-task-1'),
     } as unknown as RunwayVideoClient;
     const queue = { add: jest.fn().mockResolvedValue({}) } as unknown as Queue<VideoGenerationJobData>;
-    const processor = new VideoGenerationProcessor(prisma, runway, queue);
+    const processor = new VideoGenerationProcessor(prisma, runway, mockReplicate, queue);
     const jobData: Extract<VideoGenerationJobData, { action: 'generate' }> = {
       action: 'generate',
       videoId: 'video-id',
@@ -93,7 +101,7 @@ describe('VideoGenerationProcessor', () => {
       }),
     } as unknown as RunwayVideoClient;
     const queue = { add: jest.fn() } as unknown as Queue<VideoGenerationJobData>;
-    const processor = new VideoGenerationProcessor(prisma, runway, queue);
+    const processor = new VideoGenerationProcessor(prisma, runway, mockReplicate, queue);
     const job = {
       id: 'video-poll-1',
       data: {
@@ -149,7 +157,7 @@ describe('VideoGenerationProcessor', () => {
       createTask: jest.fn().mockRejectedValue(new Error('Provider rejected the request')),
     } as unknown as RunwayVideoClient;
     const queue = { add: jest.fn() } as unknown as Queue<VideoGenerationJobData>;
-    const processor = new VideoGenerationProcessor(prisma, runway, queue);
+    const processor = new VideoGenerationProcessor(prisma, runway, mockReplicate, queue);
     const job = {
       id: 'video-job-1',
       data: {
@@ -206,7 +214,7 @@ describe('VideoGenerationProcessor', () => {
       }),
     } as unknown as RunwayVideoClient;
     const queue = { add: jest.fn() } as unknown as Queue<VideoGenerationJobData>;
-    const processor = new VideoGenerationProcessor(prisma, runway, queue);
+    const processor = new VideoGenerationProcessor(prisma, runway, mockReplicate, queue);
     const job = {
       id: 'video-poll-1',
       data: {
@@ -231,4 +239,57 @@ describe('VideoGenerationProcessor', () => {
       }),
     );
   });
+
+  it('submits queued videos to Replicate when available', async () => {
+    const prisma = {
+      video: {
+        findFirst: jest.fn().mockResolvedValue({ status: 'QUEUED', metadata: null }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    } as unknown as PrismaService;
+    const runway = {
+      createTask: jest.fn(),
+    } as unknown as RunwayVideoClient;
+    const replicate = {
+      isAvailable: true,
+      createTask: jest.fn().mockResolvedValue('replicate-task-1'),
+      getTaskStatus: jest.fn(),
+    } as unknown as ReplicateVideoClient;
+    const queue = { add: jest.fn().mockResolvedValue({}) } as unknown as Queue<VideoGenerationJobData>;
+    const processor = new VideoGenerationProcessor(prisma, runway, replicate, queue);
+    const jobData: Extract<VideoGenerationJobData, { action: 'generate' }> = {
+      action: 'generate',
+      videoId: 'video-id-rep',
+      userId: 'user-id-rep',
+      input: { prompt: 'A cinematic drone shot' },
+      startedAt: Date.now(),
+      creditsCharged: 50,
+    };
+    const job = {
+      id: 'video-job-rep',
+      data: jobData,
+      opts: { attempts: 3 },
+      attemptsMade: 0,
+    } as Job<VideoGenerationJobData>;
+
+    await expect(processor.process(job)).resolves.toMatchObject({
+      status: 'processing',
+      providerTaskId: 'replicate-task-1',
+    });
+    expect(replicate.createTask).toHaveBeenCalledWith(jobData.input);
+    expect(runway.createTask).not.toHaveBeenCalled();
+    expect(prisma.video.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'video-id-rep' },
+        data: expect.objectContaining({
+          status: 'PROCESSING',
+          metadata: expect.objectContaining({
+            provider: 'replicate',
+            providerTaskId: 'replicate-task-1',
+          }),
+        }),
+      }),
+    );
+  });
 });
+

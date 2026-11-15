@@ -11,6 +11,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
+import { OrgRoleGuard } from './guards/org-role.guard';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuditModule } from '../audit/audit.module';
@@ -39,8 +40,9 @@ import { AuditModule } from '../audit/audit.module';
     LocalStrategy,
     GoogleStrategy,
     FacebookStrategy,
+    OrgRoleGuard,
   ],
-  exports: [AuthService, TokenService, JwtModule],
+  exports: [AuthService, TokenService, JwtModule, OrgRoleGuard],
 })
 export class AuthModule {}
 

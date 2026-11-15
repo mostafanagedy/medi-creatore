@@ -1,0 +1,10 @@
+{
+  "name": "@ai-content-os/omniroute",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OmniRoute local service runner",
+  "scripts": {
+    "dev": "node init && node start.js",
+    "start": "node init && node start.js"
+  }
+}
