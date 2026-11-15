@@ -1,14 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { MemberRole, Prisma } from '@prisma/client';
+import { MemberRole, Prisma, ProjectStatus } from '@prisma/client';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { CreateProjectDto, ListProjectsQueryDto, UpdateProjectDto } from './dto/project.dto';
+import { RenderProjectDto } from './dto/render-project.dto';
+import { QUEUE_NAMES } from '../../queues/queue-names';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orgs: OrganizationsService,
+    @InjectQueue(QUEUE_NAMES.VIDEO_RENDERING)
+    private readonly renderQueue: Queue,
   ) {}
 
   async list(userId: string, q: ListProjectsQueryDto) {
@@ -62,6 +68,43 @@ export class ProjectsService {
     await this.orgs.assertMember(userId, project.organizationId, MemberRole.ADMIN);
     await this.prisma.project.update({ where: { id }, data: { deletedAt: new Date() } });
     return { deleted: true };
+  }
+
+  async triggerRender(userId: string, id: string, dto: RenderProjectDto) {
+    const project = await this.findOrFail(id);
+    await this.orgs.assertMember(userId, project.organizationId, MemberRole.EDITOR);
+
+    // Update project status to PROCESSING
+    await this.prisma.project.update({
+      where: { id },
+      data: { status: ProjectStatus.PROCESSING },
+    });
+
+    // Add job to BullMQ video-rendering queue
+    const job = await this.renderQueue.add(
+      'render-openmontage',
+      {
+        type: 'video:rendering',
+        videoProjectId: id,
+        userId,
+        organizationId: project.organizationId,
+        resolution: dto.resolution || '1080p',
+        fps: dto.fps || 30,
+        pipeline: dto.pipeline || 'hybrid',
+      },
+      {
+        jobId: `render-${id}-${Date.now()}`,
+        attempts: 2,
+      },
+    );
+
+    return {
+      success: true,
+      jobId: job.id,
+      projectId: id,
+      status: 'queued',
+      message: 'OpenMontage video rendering pipeline initiated',
+    };
   }
 
   private async findOrFail(id: string) {
