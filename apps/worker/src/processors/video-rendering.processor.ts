@@ -129,7 +129,7 @@ export class VideoRenderingProcessor extends WorkerHost {
       }
 
       try {
-        await this.prisma.project.updateMany({
+        await this.prisma.project.update({
           where: { id: videoProjectId },
           data: { status: 'COMPLETED' },
         });
@@ -157,6 +157,14 @@ export class VideoRenderingProcessor extends WorkerHost {
         } catch (failErr) {
           this.logger.warn(`Could not set video record to FAILED: ${failErr}`);
         }
+      }
+      try {
+        await this.prisma.project.update({
+          where: { id: videoProjectId },
+          data: { status: 'DRAFT' },
+        });
+      } catch (pFailErr) {
+        this.logger.warn(`Could not reset project status on error: ${pFailErr}`);
       }
       throw new UnrecoverableError(`OpenMontage execution error: ${err.message}`);
     }
