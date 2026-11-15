@@ -15,6 +15,8 @@ export interface VideoRenderingJobData {
   outputFormat?: 'mp4' | 'webm' | 'mov';
   resolution?: '1080p' | '720p' | '480p' | '4k';
   fps?: number;
+  pipeline?: string;
+  options?: Record<string, any>;
   creditsCharged?: number;
   idempotencyKey?: string;
 }
@@ -185,6 +187,7 @@ export class VideoRenderingProcessor extends WorkerHost {
         '--project-id', projectId,
         '--title', title,
         '--resolution', resolution,
+        '--pipeline', job.data.pipeline || 'hybrid',
         '--action', 'render',
       ];
 
@@ -229,14 +232,22 @@ export class VideoRenderingProcessor extends WorkerHost {
           return reject(new Error(`Runner exited with code ${code}. Stderr: ${stderrAccum}`));
         }
 
-        // Locate the final JSON object in stdout
-        const jsonMatch = stdoutAccum.match(/\{[\s\S]*"status":\s*"success"[\s\S]*\}/);
-        if (jsonMatch) {
+        // Locate the final JSON object in stdout (excluding PROGRESS: lines)
+        const cleanLines = stdoutAccum
+          .split('\n')
+          .filter((l) => !l.trim().startsWith('PROGRESS:') && l.trim().length > 0)
+          .join('\n')
+          .trim();
+
+        const lastBrace = cleanLines.lastIndexOf('{');
+        const endBrace = cleanLines.lastIndexOf('}');
+        if (lastBrace !== -1 && endBrace !== -1 && endBrace > lastBrace) {
           try {
-            const parsed = JSON.parse(jsonMatch[0]);
+            const jsonText = cleanLines.substring(lastBrace, endBrace + 1);
+            const parsed = JSON.parse(jsonText);
             return resolve(parsed);
           } catch (jErr) {
-            return reject(new Error(`Failed to parse final runner JSON output: ${jErr}`));
+            this.logger.warn(`Failed extracting JSON from runner output: ${jErr}`);
           }
         }
 
@@ -249,6 +260,8 @@ export class VideoRenderingProcessor extends WorkerHost {
             duration_seconds: 0,
           });
         }
+
+        return reject(new Error(`Failed to parse final runner JSON output. Clean output: ${cleanLines.slice(0, 300)}`));
 
         return reject(new Error(`Runner finished with 0 but no final video JSON found. Output: ${stdoutAccum}`));
       });

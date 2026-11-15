@@ -12,8 +12,6 @@ out/
 next-env.d.ts
 
 # ── Environment & secrets (NEVER commit) ─────────────────────
-.env
-.env.*
 !.env.example
 *.pem
 *.key
@@ -55,7 +53,7 @@ desktop.ini
 _tmp_*
 report.*.json
 .idea/
-.vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
+config.bat

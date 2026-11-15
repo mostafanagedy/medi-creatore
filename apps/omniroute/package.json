@@ -4,7 +4,7 @@
   "private": true,
   "description": "OmniRoute local service runner",
   "scripts": {
-    "dev": "node start.js",
-    "start": "node start.js"
+    "dev": "node init && node start.js",
+    "start": "node init && node start.js"
   }
 }

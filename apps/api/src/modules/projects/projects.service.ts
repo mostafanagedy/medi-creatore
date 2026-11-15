@@ -91,6 +91,7 @@ export class ProjectsService {
         resolution: dto.resolution || '1080p',
         fps: dto.fps || 30,
         pipeline: dto.pipeline || 'hybrid',
+        options: dto.options,
       },
       {
         jobId: `render-${id}-${Date.now()}`,

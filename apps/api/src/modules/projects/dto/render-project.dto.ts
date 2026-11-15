@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, IsObject } from 'class-validator';
 
 export class RenderProjectDto {
   @IsOptional()
@@ -16,4 +16,8 @@ export class RenderProjectDto {
   @IsOptional()
   @IsString()
   pipeline?: string;
+
+  @IsOptional()
+  @IsObject()
+  options?: Record<string, any>;
 }
