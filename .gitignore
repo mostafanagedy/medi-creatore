@@ -12,6 +12,8 @@ out/
 next-env.d.ts
 
 # ── Environment & secrets (NEVER commit) ─────────────────────
+.env
+.env.*
 !.env.example
 *.pem
 *.key
@@ -44,6 +46,7 @@ redis_data/
 # ── Uploads / local media ────────────────────────────────────
 uploads/
 tmp/
+apps/web/public/videos/*.mp4
 
 # ── OS / Editor / Diagnostics ────────────────────────────────
 .DS_Store
@@ -53,7 +56,7 @@ desktop.ini
 _tmp_*
 report.*.json
 .idea/
+.vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
 *.swp
-config.bat
