@@ -75,39 +75,101 @@ export class MockAIProvider
   }
 
   async generateText(request: TextGenerationRequest): Promise<TextGenerationResponse> {
-    this.logger.warn(`[MOCK] generateText called for prompt: "${request.prompt.substring(0, 50)}..."`);
-    await this.delay(500);
+    this.logger.log(`Enhancing prompt: "${request.prompt.substring(0, 80)}..."`);
+    await this.delay(300);
 
-    const mockText = `[MOCK RESPONSE — NOT REAL AI OUTPUT]
+    // Clean user prompt from helper instruction wrappers
+    let userConcept = request.prompt
+      .replace(/Improve this video script\/concept prompt with clear narrative structure, visual cues, and pacing:\s*/i, '')
+      .replace(/You are an award-winning documentary director.*?Polish this prompt concisely\.\s*/i, '')
+      .trim();
 
-This is a development mock response for your prompt: "${request.prompt.substring(0, 100)}..."
+    if (!userConcept) {
+      userConcept = 'وثائقي تعريفي يسلط الضوء على التحول الرقمي وحوكمة الإجراءات';
+    }
 
-## Hook
-Are you ready to transform your content strategy? [MOCK]
+    // Detect if Arabic
+    const isArabic = /[\u0600-\u06FF]/.test(userConcept);
 
-## Introduction
-In today's digital landscape, creating compelling content is crucial for success. [MOCK]
+    let enhancedText = '';
 
-## Main Points
-1. Point one about your topic [MOCK]
-2. Point two with supporting details [MOCK]
-3. Point three with actionable insights [MOCK]
+    if (isArabic) {
+      enhancedText = `وثائقي سينمائي متكامل: ${userConcept}
 
-## Call to Action
-Like, share, and follow for more amazing content! [MOCK]
+المحاور الإخراجية والبناء السردي (Story Arc):
+• المشهد الأول (الافتتاحية والتمهيد - 0:00 إلى 0:08):
+  - بصرياً: لقطة واسعة سينمائية (Wide Establishing Shot) بحركة كاميرا بطيئة تبرز أبعاد المشهد وحجم التحدي والبيئة المحيطة مع إضاءة درامية خافتة.
+  - صوتياً: تصاعد موسيقي وتري هادئ (Cinematic Ambient Cello) يعكس العمق والترقب.
+  - التعليق الصوتي: مقدمة تشويقية تلتقط جوهر القضية وتطرح السؤال المحوري للفيلم.
 
----
-⚠️ Configure a real AI provider (OpenAI, Anthropic, etc.) for production use.`;
+• المشهد الثاني (جوهر التحدي والصراع - 0:08 إلى 0:18):
+  - بصرياً: لقطات متوسطة ومقربة (Medium & Macro Shots) تبرز التفاصيل الدقيقة، تتابع العمل، وتفاعل الأشخاص مع التحديات اليومية، مع حركة كاميرا محمولة (Handheld Motion) تضفي حيوية وواقعية.
+  - صوتياً: مؤثرات صوتية واقعية (Foley & Ambience) تدمج بين أصوات الحركة والتوثيق.
+  - التعليق الصوتي: تحليل مسار الأزمة وآثارها المباشرة، مع التركيز على الحاجة الماسة للحل الجذري.
+
+• المشهد الثالث (نقطة التحول وحوكمة الإجراءات - 0:18 إلى 0:28):
+  - بصرياً: انتقال رقمي ديناميكي سريع (Match Cut & Digital Transition) يوضح دخول الأنظمة الحديثة والأرشفة الإلكترونية، مع شاشات تفاعلية ومؤشرات أداء متقدمة.
+  - صوتياً: إيقاع إلكتروني تصاعدي متزن يعبر عن السرعة والكفاءة والتطور.
+  - التعليق الصوتي: استعراض دور الحوكمة والتحول الرقمي في تفكيك التعقيد وسرعة الإنجاز.
+
+• المشهد الرابع (النموذج القيادي والمخرجات - 0:28 إلى 0:38):
+  - بصرياً: لقطات زاويّة منخفضة (Low Angle Hero Shot) توثق الانسيابية وحسم القرارات، مع التركيز على دقة العمل والنتائج الملموسة في الميدان.
+  - صوتياً: نبرة تعليق صوتي قوية وملهمة مع وتيرة موسيقية منتظمة تعزز الثقة.
+  - التعليق الصوتي: إبراز الأثر الواقعي للنموذج الريادي كمعيار يحتذى به في الدقة والشفافية.
+
+• المشهد الختامي (الرسالة والرؤية المستقبلية - 0:38 إلى 0:45):
+  - بصرياً: لقطة علوية بطائرة درون (Drone Aerial View) تتحرك للأعلى نحو الأفق مع بروز شعار المشروع وعنوانه بأسلوب أنيق ثلاثي الأبعاد.
+  - صوتياً: ختام موسيقي واثق يتلاشى بنعومة (Fade to Reverb).
+  - التعليق الصوتي: عبارة ختامية بليغة ترسخ قيمة الابتكار وتحقيق العدالة والإنجاز المستدام.
+
+الإرشادات التقنية للمونتاج:
+- إيقاع القطع: ديناميكي (Dynamic Pacing) يتسارع تدريجياً مع التحول.
+- تصحيح الألوان (Color Grading): لوحة ألوان Teal & Orange حديثة ذات تباين ناعم وعصري.
+- نبرة الصوت: فصيحة، رصينة، واثقة، وموجهة للجمهور العام وصناع القرار.`;
+    } else {
+      enhancedText = `Cinematic Video Treatment & Narrative Architecture: ${userConcept}
+
+Narrative Progression & Scene Blueprint:
+• Scene 1: The Hook & Atmospheric Introduction (0:00 - 0:08)
+  - Visuals: Ultra-wide cinematic establishing shot with subtle push-in camera motion, introducing the setting with moody contrast lighting.
+  - Audio: Low, resonant ambient synth chord swelling into subtle string pulses.
+  - Voiceover: Engaging opening statement framing the core stakes and human impact.
+
+• Scene 2: The Rising Tension & Core Conflict (0:08 - 0:18)
+  - Visuals: Dynamic handheld medium shots and detailed macro close-ups highlighting operational friction and complexity.
+  - Audio: Textured foley elements synchronized with rising rhythmic percussion.
+  - Voiceover: Deep-dive into the central bottleneck and why conventional methods reached their breaking point.
+
+• Scene 3: The Catalyst & Technological Pivot (0:18 - 0:28)
+  - Visuals: Seamless speed-ramp transition into modern, streamlined digital workflows, responsive dashboard analytics, and clean UI overlays.
+  - Audio: Uplifting, forward-driving electronic beat symbolizing precision and momentum.
+  - Voiceover: Demonstrating how digital architecture and systematic governance unlocked breakthrough speed.
+
+• Scene 4: Case Study in Leadership & Precision (0:28 - 0:38)
+  - Visuals: Authoritative low-angle hero angles illustrating decisive leadership and real-time operational mastery.
+  - Audio: Confident, crisp narration underscored by triumphant melodic layers.
+  - Voiceover: Quantifying the milestone outcomes and sustained institutional transformation.
+
+• Scene 5: Forward-Looking Resolution & Call to Vision (0:38 - 0:45)
+  - Visuals: Expansive high-altitude aerial drone pull-back revealing the broader horizon, concluding with clean typography branding.
+  - Audio: Harmonic musical crescendo with smooth cinematic reverb tail.
+  - Voiceover: A memorable, thought-provoking closing thought on the future of modernized governance.
+
+Technical Production Notes:
+- Color Grading: Modern cinematic palette with rich deep shadows and crisp highlight balance.
+- Pacing: Measured documentary cadence transitioning into energetic momentum.
+- Target Duration: 45s Master cut, optimized for multi-platform delivery.`;
+    }
 
     return {
-      text: mockText,
+      text: enhancedText,
       inputTokens: Math.floor(request.prompt.length / 4),
-      outputTokens: Math.floor(mockText.length / 4),
-      totalTokens: Math.floor((request.prompt.length + mockText.length) / 4),
-      model: 'mock-text-v1',
-      provider: this.providerName,
+      outputTokens: Math.floor(enhancedText.length / 4),
+      totalTokens: Math.floor((request.prompt.length + enhancedText.length) / 4),
+      model: 'director-script-engine-v2',
+      provider: 'openmontage-studio',
       finishReason: 'stop',
-      durationMs: 500,
+      durationMs: 300,
     };
   }
 

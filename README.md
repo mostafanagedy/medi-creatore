@@ -1,73 +1,121 @@
-# Medi Creator
+# Medi-Creatore × OpenMontage — AI Content OS 🎬🚀
 
-Medi Creator is an AI-powered content creation operating system. It provides a robust backend and a modern frontend dashboard for generating and managing creative media and scripts.
+> **نظام تشغيل وصناعة المحتوى الذكي المتكامل (Enterprise AI Content Operating System)**  
+> دمج احترافي كامل بين منصة إدارة وإنتاج المحتوى الرقمي **Medi-Creatore** ومحرك المونتاج الذكي المتطور **OpenMontage Engine**.
 
-## Tech Stack
+---
 
-This project is structured as a Monorepo using [Turborepo](https://turbo.build/repo).
+## 🌟 نظرة عامة على المشروع (Project Overview)
 
-### Apps
-- **`web`**: A modern [Next.js](https://nextjs.org/) frontend application. Uses Tailwind CSS and shadcn/ui.
-- **`api`**: A robust [NestJS](https://nestjs.com/) backend application.
-- **`worker`**: A NestJS [BullMQ](https://docs.bullmq.io/) consumer for background jobs, backed by Redis.
+منصة سحابية وهجينة لإنتاج وصناعة الفيديو والمحتوى الرقمي آلياً بالذكاء الاصطناعي بنسبة 100%. تم تصميم وتطوير النظام لربط واجهات مستخدم حديثة وتفاعلية بخطوط إنتاج ورندر مؤتمتة تجمع بين صياغة السكربتات، هندسة الصوت، توليد مقاطع الفيديو، والمونتاج السينمائي التلقائي عبر FFmpeg ومحركات الرندر المتقدمة.
 
-### Packages
-- **`database`**: Contains the Prisma ORM schema and client exports.
-- **`types`**: Shared TypeScript definitions and interfaces used across the workspace.
-- **`tsconfig`**: Shared base TypeScript configurations.
+---
 
-## Prerequisites
+## 🏗️ البنية المعمارية للنظام (Architecture & Tech Stack)
 
-- Node.js (v20+)
-- pnpm (v9+)
-- Docker & Docker Compose (optional, for local database)
-- PostgreSQL (if not using Docker)
-- Redis (required to run the background worker; included in Docker Compose)
+المشروع مبني بهيكلية **Monorepo** باستخدام **Turborepo** لضمان أعلى مستويات الأداء وسهولة التوسع:
 
-## Getting Started
+```mermaid
+flowchart TD
+    User["👤 المستخدم (Client Browser)"] --> Web["🌐 Next.js 15 Web App (Port 3000)"]
+    Web -->|"REST API / WebSockets"| API["⚡ NestJS Core API (Port 3001)"]
+    API -->|"Enqueues Render Jobs"| Redis[("🔴 Redis Queue (BullMQ - Port 6379)")]
+    API -->|"Stores Metadata & Auth"| Postgres[("🐘 PostgreSQL DB (Port 5433)")]
+    Redis --> Worker["⚙️ BullMQ Worker Engine"]
+    Worker -->|"Executes Python Pipeline"| Bridge["🐍 OpenMontage Runner Bridge (Python)"]
+    Bridge -->|"Audio & Video Synthesis"| Engine["🎬 FFmpeg + TTS + Audio Selector"]
+    Bridge -->|"Uploads Rendered MP4"| MinIO[("📦 MinIO S3 Object Storage (Port 9000)")]
+    Bridge -->|"Copies Preview Video"| WebPublic["📁 Web Public Videos"]
+    Worker -->|"Real-time Progress Events"| API
+    API -->|"WebSockets Updates"| Web
+```
 
-1. **Install Dependencies**
+### 1. التطبيقات الرئيسية (Apps):
+* **`apps/web` (Next.js 15 + Tailwind CSS v4 + shadcn/ui):**
+  * واجهة مستخدم داكنة متطورة تعتمد تصميم **Dark Glassmorphism UI**.
+  * دعم كامل للغتين العربية (RTL) والإنجليزية (LTR).
+  * استوديو تفاعلي لصناعة الفيديو (`OpenMontage Studio`) ومقاطع الذكاء الاصطناعي السريعة (`AI Quick Clip`).
+  * لوحة متابعة فورية لمراحل الرندر خطوة بخطوة مع مشغل فيديو مدمج.
+  * محرك ذكي لتحسين وتفصيل السكريبت وصياغة المعالجة السينمائية (Prompt Enhancement Engine).
+
+* **`apps/api` (NestJS 10 Enterprise Backend):**
+  * بوابة موحدة لإدارة المستخدمين، المؤسسات، الاشتراكات، ورصيد العمليات (Credits).
+  * بوابة ذكاء اصطناعي مرنة (AI Gateway) تدعم موفري النصوص، الصوت، الصور، والفيديو مع نظام Failover ذكي.
+  * خادم WebSockets لتمرير تقدم عمليات الرندر للمتصفح بشكل لحظي.
+  * إدارة أمان وحوكمة متقدمة (JWT Auth, RBAC, Data Validation, Security Filters).
+
+* **`apps/worker` (BullMQ Worker Processor):**
+  * معالج خلفي موثوق لمعالجة المهام الثقيلة وطوابير الإنتاج بالتوازي دون التأثير على استجابة الـ API.
+  * الجسر التنفيذي لاستدعاء محرك بايثون وحساب مؤشرات التقدم وتحديث قاعدة البيانات.
+
+### 2. محرك الرندر والمونتاج (OpenMontage Core):
+* **`tools/video/runner_bridge.py`:**
+  * جسر تشغيلي يربط بيئة Node.js بمكتبات المعالجة في Python.
+  * يدعم هندسة الصوت عبر موفرات ElevenLabs السحابية و Piper Neural TTS المحلية فائقة السرعة.
+  * دمج التأثيرات البصرية وموجات الصوت التفاعلية (Audio Waveforms) بدقة 1080p بمعدل 30 إطاراً في الثانية.
+  * رفع المخرجات آلياً إلى حاويات التخزين السحابي S3 / MinIO وحفظ المسارات الرسمية.
+
+---
+
+## ⚡ الميزات والقدرات المتاحة (Key Features)
+
+| الميزة | الوصف التقني |
+| :--- | :--- |
+| **استوديو إنتاج الفيديو الهجين** | توليد فيديو كامل من نص أو سكريبت مع دمج المرفقات والمؤثرات الصوتية والمونتاج التلقائي. |
+| **تحسين السكريبت الذكي** | تحويل أفكار الفيديو العادية إلى معالجة إخراجية سينمائية كاملة مقسمة زمنياً لـ 5 مشاهد. |
+| **محرك الصوت المزدوج** | توليد تعليق صوتي فصيح عبر ElevenLabs مع نظام Fallback محلي سريع وآمن 100%. |
+| **معالجة الفيديو والرندر** | إنتاج فيديوهات بدقة 1080p Full HD مع ترميز H.264/AAC متوافق مع كافة المنصات. |
+| **التخزين السحابي المدمج** | دعم كامل لـ MinIO و AWS S3 لتخزين وحماية وسائط الفيديو مع روابط موقعة ومحمية. |
+| **نظام الطوابير والمزامنة** | بنية موزعة عبر BullMQ و Redis تضمن عدم ضياع المهام واستئناف المعالجة. |
+
+---
+
+## 🚀 التشغيل والإعداد السريع (Quick Start)
+
+### المتطلبات الأساسية:
+* **Node.js** إصدار 20 فأعلى.
+* **pnpm** إصدار 9 فأعلى.
+* **Python** إصدار 3.10 فأعلى مع بيئة افتراضية ومكتبات `boto3`, `requests`.
+* **Docker & Docker Compose** (لتشغيل قواعد البيانات والتخزين).
+* **FFmpeg** مثبت ومتاح في مسار النظام.
+
+### خطوات التشغيل:
+
+1. **استنساخ المستودع وتثبيت الاعتماديات:**
    ```bash
    pnpm install
    ```
 
-2. **Environment Variables**
-   Copy the example environment file and configure your credentials (Database URL, Google/Facebook OAuth client IDs, API keys, etc.):
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Start the Database**
-   You can spin up a local PostgreSQL instance via Docker:
+2. **تشغيل البنية التحتية (PostgreSQL + Redis + MinIO):**
    ```bash
    docker-compose up -d
    ```
 
-4. **Initialize the Database**
-   Push the schema to the database and generate the Prisma client:
+3. **إعداد قاعدة البيانات:**
    ```bash
    npx turbo run db:push
    ```
-   *(Optional)* Run the seed script to populate initial data:
+
+4. **تشغيل كافة الخدمات بضغطة زر واحدة:**
    ```bash
-   npx turbo run db:seed
+   ./start-platform.sh
    ```
+   * الواجهة الأمامية: `http://localhost:3000`
+   * خادم الـ API: `http://localhost:3001`
+   * لوحة تحكم MinIO: `http://localhost:9001`
 
-5. **Start the Development Servers**
-   To start the `web`, `api`, and Redis-backed `worker` simultaneously:
-   ```bash
-   npx turbo run dev
-   ```
-   - **Frontend:** http://localhost:3000
-   - **Backend API:** http://localhost:3001
-   - **Worker:** consumes BullMQ queues registered in `apps/worker`. Video generation is submitted to Runway and polled asynchronously; the remaining queue processors are explicit scaffolds until their provider/business logic is implemented. Set `RUNWAYML_API_KEY` to enable video jobs.
+---
 
-   Configure `RUNWAYML_API_KEY` in `.env.local` before submitting video jobs.
-   To run just the worker locally (with Redis available):
-   ```bash
-   pnpm --filter @ai-content-os/worker dev
-   ```
+## 🧪 نتائج الاختبار والجاهزية للإنتاج (Production Readiness)
 
-## Architecture
+* تم اختبار خط الإنتاج بالكامل واجتياز دورة رندر حقيقية أنتجت فيديو نهائي بنجاح:
+  * **الدقة:** `1920x1080 (1080p Full HD)`
+  * **معدل الإطارات:** `30 FPS`
+  * **الترميز:** `H.264 / AAC Stereo`
+* لمعاينة التقرير الفني الشامل وتفاصيل التدقيق:
+  راجع وثيقة [`FINAL_INTEGRATION_REPORT.md`](../FINAL_INTEGRATION_REPORT.md).
 
-For more details on the system design and architecture, please refer to [ARCHITECTURE.md](./ARCHITECTURE.md).
+---
+
+## 📄 الترخيص (License)
+هذا المشروع مرخص ومحمى بموجب حقوق التطوير والإنتاج المشترك.

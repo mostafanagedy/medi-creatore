@@ -110,19 +110,23 @@ export class VideoRenderingProcessor extends WorkerHost {
       await job.updateProgress(100);
 
       // 4. Update Video and Project in Database
+      const finalUrl = result.final_video_url || result.final_video_path;
       if (videoRecordId) {
         try {
           await this.prisma.video.update({
             where: { id: videoRecordId },
             data: {
               status: 'COMPLETED',
-              fileUrl: result.final_video_path,
-              previewUrl: result.final_video_path,
+              fileUrl: finalUrl,
+              previewUrl: finalUrl,
               durationSec: Math.round(result.duration_seconds || 0),
               resolution: result.resolution || resolution,
               fps,
               fileSize: result.file_size_bytes ? BigInt(result.file_size_bytes) : null,
-              metadata: result.render_report || {},
+              metadata: {
+                ...(result.render_report || {}),
+                localPath: result.final_video_path,
+              },
             },
           });
         } catch (upErr) {
@@ -139,10 +143,10 @@ export class VideoRenderingProcessor extends WorkerHost {
         this.logger.warn(`Project status update deferred: ${pUpErr}`);
       }
 
-      this.logger.log(`Render completed successfully for ${videoProjectId}: ${result.final_video_path}`);
+      this.logger.log(`Render completed successfully for ${videoProjectId}: ${finalUrl}`);
       return {
         status: 'completed',
-        videoUrl: result.final_video_path,
+        videoUrl: finalUrl,
         duration: result.duration_seconds,
       };
     } catch (err: any) {
@@ -239,11 +243,11 @@ export class VideoRenderingProcessor extends WorkerHost {
           .join('\n')
           .trim();
 
-        const lastBrace = cleanLines.lastIndexOf('{');
+        const firstBrace = cleanLines.indexOf('{');
         const endBrace = cleanLines.lastIndexOf('}');
-        if (lastBrace !== -1 && endBrace !== -1 && endBrace > lastBrace) {
+        if (firstBrace !== -1 && endBrace !== -1 && endBrace > firstBrace) {
           try {
-            const jsonText = cleanLines.substring(lastBrace, endBrace + 1);
+            const jsonText = cleanLines.substring(firstBrace, endBrace + 1);
             const parsed = JSON.parse(jsonText);
             return resolve(parsed);
           } catch (jErr) {
