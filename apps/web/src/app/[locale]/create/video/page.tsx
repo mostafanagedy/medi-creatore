@@ -282,14 +282,29 @@ export default function CreateVideoPage() {
   // OpenMontage Studio Render Mutation
   const omRenderMutation = useMutation({
     mutationFn: async () => {
-      // 1. Create or ensure project
+      // 1. Resolve organization ID safely
+      let effectiveOrgId = organizationId;
+      if (!effectiveOrgId) {
+        try {
+          const profileRes = await apiClient.get('/users/me');
+          const profileData = profileRes.data?.data ?? profileRes.data;
+          const userOrgs = profileData?.memberships
+            ?.map((m: any) => m.organization)
+            ?.filter(Boolean);
+          effectiveOrgId = userOrgs?.find((o: any) => o.isPersonal)?.id ?? userOrgs?.[0]?.id ?? profileData?.personalOrg?.id;
+        } catch (orgErr) {
+          console.warn('Could not retrieve active organization from profile', orgErr);
+        }
+      }
+
+      // 2. Create or ensure project
       let projectId = '';
-      if (organizationId) {
+      if (effectiveOrgId) {
         try {
           const projectRes = await apiClient.post('/projects', {
-            organizationId,
-            name: omTitle.trim() || 'Untitled OpenMontage Video',
-            description: omPrompt.trim(),
+            organizationId: effectiveOrgId,
+            name: (omTitle.trim() || 'Untitled OpenMontage Video').slice(0, 120),
+            description: omPrompt.trim().slice(0, 4000),
             tags: ['openmontage', omPipeline],
           });
           projectId = projectRes.data?.data?.id ?? projectRes.data?.id;
@@ -302,15 +317,15 @@ export default function CreateVideoPage() {
         projectId = `proj-${Date.now()}`;
       }
 
-      // 2. Trigger Render on API
+      // 3. Trigger Render on API
       const renderRes = await apiClient.post(`/projects/${projectId}/render`, {
         pipeline: omPipeline,
         resolution: omResolution,
         aspectRatio: omAspectRatio,
         fps: 30,
         options: {
-          title: omTitle,
-          prompt: omPrompt,
+          title: omTitle.trim() || 'Untitled OpenMontage Video',
+          prompt: omPrompt.trim(),
           voice: omVoice,
           musicStyle: omMusicStyle,
         },

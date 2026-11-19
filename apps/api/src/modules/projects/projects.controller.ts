@@ -33,6 +33,15 @@ export class ProjectsController {
     return this.projects.triggerRender(user.id, id, dto);
   }
 
+  @Get(':id/render/status')
+  @ApiOperation({ summary: 'Get OpenMontage render and video status for project' })
+  getRenderStatus(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+  ) {
+    return this.projects.getRenderStatus(user.id, id);
+  }
+
   @Get(':id')
   get(@CurrentUser() user: User, @Param('id') id: string) {
     return this.projects.get(user.id, id);

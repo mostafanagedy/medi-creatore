@@ -9,7 +9,7 @@ export class CreateProjectDto {
   @IsString() @MinLength(1) @MaxLength(120)
   name!: string;
 
-  @IsOptional() @IsString() @MaxLength(1000)
+  @IsOptional() @IsString() @MaxLength(10000)
   description?: string;
 
   @IsOptional() @IsArray() @IsString({ each: true })
@@ -23,7 +23,7 @@ export class UpdateProjectDto {
   @IsOptional() @IsString() @MinLength(1) @MaxLength(120)
   name?: string;
 
-  @IsOptional() @IsString() @MaxLength(1000)
+  @IsOptional() @IsString() @MaxLength(10000)
   description?: string;
 
   @IsOptional() @IsEnum(ProjectStatus)

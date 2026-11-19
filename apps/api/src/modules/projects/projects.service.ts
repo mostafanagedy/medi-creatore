@@ -71,14 +71,36 @@ export class ProjectsService {
   }
 
   async triggerRender(userId: string, id: string, dto: RenderProjectDto) {
-    const project = await this.findOrFail(id);
-    await this.orgs.assertMember(userId, project.organizationId, MemberRole.EDITOR);
+    let project = await this.prisma.project.findFirst({ where: { id, deletedAt: null } });
+    if (!project) {
+      // Auto-provision project for the user if it was a frontend temporary identifier
+      const membership = await this.prisma.membership.findFirst({
+        where: { userId },
+      });
+      if (membership) {
+        project = await this.prisma.project.create({
+          data: {
+            id,
+            organizationId: membership.organizationId,
+            createdByUserId: userId,
+            name: (dto.options?.title as string) || 'OpenMontage Production',
+            description: dto.options?.prompt ? String(dto.options.prompt).slice(0, 4000) : null,
+            status: ProjectStatus.PROCESSING,
+            tags: ['openmontage', dto.pipeline || 'hybrid'],
+          },
+        });
+      } else {
+        throw new NotFoundException('Project not found');
+      }
+    } else {
+      await this.orgs.assertMember(userId, project.organizationId, MemberRole.EDITOR);
 
-    // Update project status to PROCESSING
-    await this.prisma.project.update({
-      where: { id },
-      data: { status: ProjectStatus.PROCESSING },
-    });
+      // Update project status to PROCESSING
+      await this.prisma.project.update({
+        where: { id },
+        data: { status: ProjectStatus.PROCESSING },
+      });
+    }
 
     // Add job to BullMQ video-rendering queue
     const job = await this.renderQueue.add(
@@ -105,6 +127,29 @@ export class ProjectsService {
       projectId: id,
       status: 'queued',
       message: 'OpenMontage video rendering pipeline initiated',
+    };
+  }
+
+  async getRenderStatus(userId: string, id: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        videos: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!project) throw new NotFoundException('Project not found');
+
+    const latestVideo = project.videos?.[0];
+    return {
+      projectId: id,
+      projectStatus: project.status,
+      renderStatus: latestVideo?.status ?? (project.status === ProjectStatus.COMPLETED ? 'COMPLETED' : 'PROCESSING'),
+      videoUrl: latestVideo?.fileUrl ?? (project.status === ProjectStatus.COMPLETED ? `/videos/${id}.mp4` : null),
+      video: latestVideo,
     };
   }
 
