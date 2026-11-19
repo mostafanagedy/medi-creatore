@@ -4,9 +4,9 @@
   "private": true,
   "description": "AI Content OS \u2014 NestJS background job consumers",
   "scripts": {
-    "build": "nest build",
-    "dev": "nest start --watch",
-    "start": "node dist/main.js",
+    "build": "node init && nest build",
+    "dev": "node init && nest start --watch",
+    "start": "node init && node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch"

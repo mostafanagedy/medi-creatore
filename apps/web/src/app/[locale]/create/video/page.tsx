@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
+import { useLocale } from 'next-intl';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,9 @@ type OpenMontageJob = {
 };
 
 export default function CreateVideoPage() {
+  const locale = useLocale();
+  const isAr = locale === 'ar';
+
   const queryClient = useQueryClient();
   const { credits, isLoading: isProfileLoading, organizationId } = useDefaultOrganization();
 
@@ -86,14 +90,20 @@ export default function CreateVideoPage() {
   const [quickJob, setQuickJob] = useState<QuickClipJob | null>(null);
 
   // OpenMontage Studio States
-  const [omTitle, setOmTitle] = useState('أرشيف القاضي - الدائرة السابعة تعليم');
+  const [omTitle, setOmTitle] = useState(
+    isAr
+      ? 'أرشيف القاضي - الدائرة السابعة تعليم'
+      : 'The Judicial Archive - Case Governance & Digital Transformation',
+  );
   const [omPrompt, setOmPrompt] = useState(
-    'وثائقي تعريفي يسلط الضوء على مشروع أرشيف القاضي وكيفية حل أزمة تكدس القضايا بالتحول الرقمي، مع التركيز على الدائرة السابعة (تعليم) كنموذج ريادي وتوضيح دور رئيس الدائرة في حوكمة سير الدعاوى.',
+    isAr
+      ? 'وثائقي تعريفي يسلط الضوء على مشروع أرشيف القاضي وكيفية حل أزمة تكدس القضايا بالتحول الرقمي، مع التركيز على الدائرة السابعة (تعليم) كنموذج ريادي وتوضيح دور رئيس الدائرة في حوكمة سير الدعاوى.'
+      : 'A compelling documentary exploring the digital transformation of judicial archives, addressing court case backlogs through automated workflows, case governance, and digital court operations.',
   );
   const [omPipeline, setOmPipeline] = useState('hybrid-documentary');
   const [omAspectRatio, setOmAspectRatio] = useState('16:9');
   const [omResolution, setOmResolution] = useState('1080p');
-  const [omVoice, setOmVoice] = useState('piper-ar-male');
+  const [omVoice, setOmVoice] = useState(isAr ? 'piper-ar-male' : 'azure-neural');
   const [omMusicStyle, setOmMusicStyle] = useState('cinematic-documentary');
   const [omAttachments, setOmAttachments] = useState<
     Array<{ name: string; size: string; type: 'image' | 'video' | 'audio' | 'file'; path?: string; url?: string }>
@@ -166,12 +176,12 @@ export default function CreateVideoPage() {
           status: 'completed',
           progress: 100,
           stage: 'completed',
-          message: 'Video rendering finished successfully!',
+          message: isAr ? 'تم إنهاء ومعالجة الفيديو بنجاح!' : 'Video rendering finished successfully!',
           videoUrl,
           logs: [...prev.logs, `[COMPLETE] Video ready at ${videoUrl}`],
         };
       });
-      toast.success('تم إنتاج وتجهيز الفيديو الجديد بنجاح!');
+      toast.success(isAr ? 'تم إنتاج وتجهيز الفيديو الجديد بنجاح!' : 'New video generated and ready successfully!');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     });
 
@@ -181,17 +191,17 @@ export default function CreateVideoPage() {
         return {
           ...prev,
           status: 'failed',
-          message: event.error || 'Video rendering failed',
+          message: event.error || (isAr ? 'فشلت عملية معالجة الفيديو' : 'Video rendering failed'),
           logs: [...prev.logs, `[ERROR] ${event.error}`],
         };
       });
-      toast.error(event.error || 'فشلت عملية الرندر');
+      toast.error(event.error || (isAr ? 'فشلت عملية الرندر' : 'Render operation failed'));
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [queryClient]);
+  }, [queryClient, isAr]);
 
   // OpenMontage Status Polling Query: to recover status even after page refresh or socket disconnect
   useQuery({
@@ -212,12 +222,12 @@ export default function CreateVideoPage() {
                 status: 'completed',
                 progress: 100,
                 stage: 'completed',
-                message: 'تم إنهاء ومعالجة الفيديو بنجاح!',
+                message: isAr ? 'تم إنهاء ومعالجة الفيديو بنجاح!' : 'Video processing completed successfully!',
                 videoUrl,
                 logs: [...prev.logs, `[POLLING] Video verified ready at ${videoUrl}`],
               };
             });
-            toast.success('تم إنتاج وتجهيز الفيديو بنجاح!');
+            toast.success(isAr ? 'تم إنتاج وتجهيز الفيديو بنجاح!' : 'Video rendered and ready successfully!');
             queryClient.invalidateQueries({ queryKey: ['profile'] });
           }
         } else if (data?.renderStatus === 'FAILED') {
@@ -226,7 +236,7 @@ export default function CreateVideoPage() {
             return {
               ...prev,
               status: 'failed',
-              message: data?.video?.errorMessage || 'فشلت معالجة الفيديو',
+              message: data?.video?.errorMessage || (isAr ? 'فشلت معالجة الفيديو' : 'Video processing failed'),
               logs: [...prev.logs, `[POLLING ERROR] ${data?.video?.errorMessage || 'Render failed'}`],
             };
           });
@@ -294,8 +304,10 @@ export default function CreateVideoPage() {
         status: 'queued',
         progress: 5,
         stage: 'init',
-        message: 'جاري إنشاء المشروع وتجهيز خط الإنتاج المباشر...',
-        logs: ['[START] Initializing clean production run...'],
+        message: isAr
+          ? 'جاري إنشاء المشروع وتجهيز خط الإنتاج المباشر...'
+          : 'Initializing project and preparing live production pipeline...',
+        logs: [isAr ? '[START] بدء خط الإنتاج النظيف...' : '[START] Initializing clean production run...'],
       });
     },
     mutationFn: async () => {
@@ -316,7 +328,7 @@ export default function CreateVideoPage() {
 
       // 2. Always create a new project record with a fresh timestamped name to guarantee a brand new video
       const uniqueSuffix = Date.now().toString().slice(-6);
-      const projectTitle = omTitle.trim() || `مشروع فيديو - ${uniqueSuffix}`;
+      const projectTitle = omTitle.trim() || (isAr ? `مشروع فيديو - ${uniqueSuffix}` : `Video Project - ${uniqueSuffix}`);
       let projectId = '';
       if (effectiveOrgId) {
         try {
@@ -370,13 +382,15 @@ export default function CreateVideoPage() {
         status: 'processing',
         progress: 10,
         stage: 'init',
-        message: 'تم إرسال مهمة الإنتاج إلى طابور المعالجة وبدء الرندر...',
+        message: isAr
+          ? 'تم إرسال مهمة الإنتاج إلى طابور المعالجة وبدء الرندر...'
+          : 'Production task queued and render process initiated...',
         logs: [`[INIT] Job queued with ID ${jobId}`],
       });
-      toast.success('تم بدء مهمة إنتاج الفيديو الجديد بنجاح!');
+      toast.success(isAr ? 'تم بدء مهمة إنتاج الفيديو الجديد بنجاح!' : 'New video production job submitted successfully!');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message ?? error.message ?? 'فشل بدء عملية الإنتاج');
+      toast.error(error.response?.data?.message ?? error.message ?? (isAr ? 'فشل بدء عملية الإنتاج' : 'Failed to start video production'));
     },
   });
 
@@ -385,7 +399,11 @@ export default function CreateVideoPage() {
     if (!files || files.length === 0) return;
 
     setIsUploadingAttachment(true);
-    const toastId = toast.loading(`جاري رفع ومعالجة ${files.length} من المرفقات لسيرفر المونتاج...`);
+    const toastId = toast.loading(
+      isAr
+        ? `جاري رفع ومعالجة ${files.length} من المرفقات لسيرفر المونتاج...`
+        : `Uploading and processing ${files.length} media file(s) for montage...`
+    );
 
     const uploadedList: Array<{ name: string; size: string; type: 'image' | 'video' | 'audio' | 'file'; path?: string; url?: string }> = [];
 
@@ -424,7 +442,11 @@ export default function CreateVideoPage() {
     setOmAttachments((prev) => [...prev, ...uploadedList]);
     setIsUploadingAttachment(false);
     toast.dismiss(toastId);
-    toast.success(`تم حفظ وربط ${uploadedList.length} ملف بنجاح في خط الإنتاج!`);
+    toast.success(
+      isAr
+        ? `تم حفظ وربط ${uploadedList.length} ملف بنجاح في خط الإنتاج!`
+        : `Successfully uploaded and linked ${uploadedList.length} file(s) for montage!`
+    );
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -442,7 +464,7 @@ export default function CreateVideoPage() {
     try {
       localStorage.removeItem('om_active_job');
     } catch {}
-    toast.info('تم تفريغ اللوحة وبدء مشروع فيديو جديد بنجاح');
+    toast.info(isAr ? 'تم تفريغ اللوحة وبدء مشروع فيديو جديد بنجاح' : 'Board cleared and started a new video project');
   };
 
   const generateCinematicScriptFallback = (rawText: string) => {
@@ -553,9 +575,13 @@ Production Specifications:
       } else {
         setQuickPrompt(enhancedResult);
       }
-      toast.success('تم تحسين وتفصيل السكريبت بنجاح عبر محرك الإخراج الذكي');
+      toast.success(
+        isAr
+          ? 'تم تحسين وتفصيل السكريبت بنجاح عبر محرك الإخراج الذكي'
+          : 'Script prompt enhanced successfully by AI Director',
+      );
     } catch (e) {
-      toast.error('تعذر تحسين النص');
+      toast.error(isAr ? 'تعذر تحسين النص' : 'Failed to enhance prompt');
     } finally {
       setIsEnhancing(false);
     }
@@ -589,10 +615,12 @@ Production Specifications:
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-extrabold tracking-tight">
             <Film className="h-8 w-8 text-primary" />
-            استوديو صناعة وإنتاج الفيديو الذكي
+            {isAr ? 'استوديو صناعة وإنتاج الفيديو الذكي' : 'AI Video Production & Studio'}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            توليد وإنتاج فيديوهات وثائقية وتفسيرية كاملة مع هندسة الصوت والمونتاج التلقائي عبر محرك OpenMontage
+            {isAr
+              ? 'توليد وإنتاج فيديوهات وثائقية وتفسيرية كاملة مع هندسة الصوت والمونتاج التلقائي عبر محرك OpenMontage'
+              : 'Produce comprehensive documentary and explainer videos with automated sound engineering and editing via OpenMontage'}
           </p>
         </div>
 
@@ -605,7 +633,7 @@ Production Specifications:
               className="gap-1.5 text-xs border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              مشروع فيديو جديد
+              {isAr ? 'مشروع فيديو جديد' : 'New Video Project'}
             </Button>
           )}
 
@@ -618,7 +646,7 @@ Production Specifications:
             className="gap-2"
           >
             <Clapperboard className="h-4 w-4" />
-            OpenMontage Studio (متكامل)
+            {isAr ? 'OpenMontage Studio (متكامل)' : 'OpenMontage Studio (Integrated)'}
           </Button>
           <Button
             size="sm"
@@ -627,7 +655,7 @@ Production Specifications:
             className="gap-2 text-muted-foreground"
           >
             <Sparkles className="h-4 w-4" />
-            AI Quick Clip (لقطة سريعة)
+            {isAr ? 'AI Quick Clip (لقطة سريعة)' : 'AI Quick Clip'}
           </Button>
           </div>
         </div>
@@ -641,25 +669,34 @@ Production Specifications:
             <Card className="glass-card border-white/10 shadow-lg">
               <CardHeader className="space-y-1 pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">مواصفات وسيناريو الفيديو</CardTitle>
+                  <CardTitle className="text-xl">
+                    {isAr ? 'مواصفات وسيناريو الفيديو' : 'Video Concept & Script Specifications'}
+                  </CardTitle>
                   <Badge variant="secondary" className="gap-1 border-primary/30 text-primary">
-                    <Wand2 className="h-3 w-3" /> محرك الإنتاج الهجين
+                    <Wand2 className="h-3 w-3" />
+                    {isAr ? 'محرك الإنتاج الهجين' : 'Hybrid Production Engine'}
                   </Badge>
                 </div>
                 <CardDescription>
-                  حدد موضوع الفيديو أو قصته وسيقوم المحرك بالبحث عن المقاطع وصياغة السكربت وتركيب الصوت والمونتاج.
+                  {isAr
+                    ? 'حدد موضوع الفيديو أو قصته وسيقوم المحرك بالبحث عن المقاطع وصياغة السكربت وتركيب الصوت والمونتاج.'
+                    : 'Define your video concept or story; the engine analyzes clips, generates script, and renders the edit.'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="om-title" className="font-semibold">
-                    عنوان المشروع / الفيديو
+                    {isAr ? 'عنوان المشروع / الفيديو' : 'Project / Video Title'}
                   </Label>
                   <Input
                     id="om-title"
                     value={omTitle}
                     onChange={(e) => setOmTitle(e.target.value)}
-                    placeholder="مثال: أرشيف القاضي - الدائرة السابعة تعليم"
+                    placeholder={
+                      isAr
+                        ? 'مثال: أرشيف القاضي - الدائرة السابعة تعليم'
+                        : 'e.g., The Judicial Archive - Case Governance & Digital Transformation'
+                    }
                     className="border-white/15 bg-background/50 text-base font-medium"
                   />
                 </div>
@@ -667,7 +704,7 @@ Production Specifications:
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="om-prompt" className="font-semibold">
-                      وصف القصة، المحاور، والعناصر المطلوب إبرازها
+                      {isAr ? 'وصف القصة، المحاور، والعناصر المطلوب إبرازها' : 'Story Concept, Key Topics & Visual Focus'}
                     </Label>
                     <Button
                       variant="outline"
@@ -677,7 +714,13 @@ Production Specifications:
                       className="gap-1.5 text-xs text-primary"
                     >
                       {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      تحسين وتفصيل السكربت
+                      {isAr
+                        ? isEnhancing
+                          ? 'جاري التحسين...'
+                          : 'تحسين وتفصيل السكربت'
+                        : isEnhancing
+                          ? 'Enhancing...'
+                          : 'Enhance Script Prompt'}
                     </Button>
                   </div>
                   <textarea
@@ -686,7 +729,11 @@ Production Specifications:
                     onChange={(e) => setOmPrompt(e.target.value)}
                     rows={6}
                     className="w-full resize-y rounded-lg border border-white/15 bg-background/50 p-3 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    placeholder="اكتب هنا المحتوى أو المشكلة التي يعالجها الفيديو، ودور رئيس الدائرة، والتفاصيل..."
+                    placeholder={
+                      isAr
+                        ? 'اكتب هنا المحتوى أو المشكلة التي يعالجها الفيديو، ودور رئيس الدائرة، والتفاصيل...'
+                        : 'Describe the story, key challenges, leadership role, visual beats, and narrative milestones...'
+                    }
                   />
                 </div>
 
@@ -696,10 +743,14 @@ Production Specifications:
                     <div>
                       <Label className="font-semibold text-sm flex items-center gap-2">
                         <Paperclip className="h-4 w-4 text-primary" />
-                        ملحقات ومواد المونتاج (صور، فيديوهات، مؤثرات صوتية، ملفات)
+                        {isAr
+                          ? 'ملحقات ومواد المونتاج (صور، فيديوهات، مؤثرات صوتية، ملفات)'
+                          : 'Footage & Production Media (Videos, Images, Audio, Files)'}
                       </Label>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        أضف المستندات، الشعار، اللقطات الأرشيفية أو التسجيلات الصوتية لدمجها تلقائياً في مشاهد الفيديو
+                        {isAr
+                          ? 'أضف المستندات، الشعار، اللقطات الأرشيفية أو التسجيلات الصوتية لدمجها تلقائياً في مشاهد الفيديو'
+                          : 'Upload source footage, logos, archive clips, or audio tracks to seamlessly montage into the video'}
                       </p>
                     </div>
                     <input
@@ -723,7 +774,13 @@ Production Specifications:
                       ) : (
                         <UploadCloud className="h-4 w-4" />
                       )}
-                      {isUploadingAttachment ? 'جاري الرفع...' : 'رفع ملحقات'}
+                      {isAr
+                        ? isUploadingAttachment
+                          ? 'جاري الرفع...'
+                          : 'رفع ملحقات'
+                        : isUploadingAttachment
+                          ? 'Uploading...'
+                          : 'Upload Media'}
                     </Button>
                   </div>
 
@@ -745,7 +802,7 @@ Production Specifications:
                                 <span className="text-[10px] text-muted-foreground">{file.size}</span>
                                 {file.path && (
                                   <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 px-1 rounded">
-                                    جاهز للمونتاج
+                                    {isAr ? 'جاهز للمونتاج' : 'Ready for Montage'}
                                   </span>
                                 )}
                               </div>
@@ -759,7 +816,7 @@ Production Specifications:
                                 size="icon"
                                 onClick={() => setPreviewMedia({ name: file.name, type: file.type, url: file.url! })}
                                 className="h-7 w-7 text-muted-foreground hover:text-primary"
-                                title="معاينة الملف"
+                                title={isAr ? 'معاينة الملف' : 'Preview Media'}
                               >
                                 <Eye className="h-3.5 w-3.5" />
                               </Button>
@@ -770,7 +827,7 @@ Production Specifications:
                               size="icon"
                               onClick={() => removeAttachment(idx)}
                               className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                              title="حذف الملف"
+                              title={isAr ? 'حذف الملف' : 'Remove Media'}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -784,7 +841,9 @@ Production Specifications:
                       className="cursor-pointer rounded-lg border border-dashed border-white/15 p-4 text-center transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
                       <p className="text-xs text-muted-foreground">
-                        اسحب وأفلت الملفات هنا أو اضغط لاختيار الصور، الفيديوهات أو المستندات الداعمة
+                        {isAr
+                          ? 'اسحب وأفلت الملفات هنا أو اضغط لاختيار الصور، الفيديوهات أو المستندات الداعمة'
+                          : 'Drag & drop files here or click to select footage, images, audio, or documents'}
                       </p>
                     </div>
                   )}
@@ -792,23 +851,31 @@ Production Specifications:
 
                 {/* Pipeline Selection */}
                 <div className="space-y-2">
-                  <Label className="font-semibold">مسار الإنتاج (Production Pipeline)</Label>
+                  <Label className="font-semibold">
+                    {isAr ? 'مسار الإنتاج (Production Pipeline)' : 'Production Pipeline'}
+                  </Label>
                   <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                     {[
                       {
                         id: 'hybrid-documentary',
-                        name: 'وثائقي متعدد المشاهد',
-                        desc: 'سرد قصصي، تعليق صوتي، موشن جرافيكس وخلفيات أرشيفية',
+                        name: isAr ? 'وثائقي متعدد المشاهد' : 'Multi-Scene Documentary',
+                        desc: isAr
+                          ? 'سرد قصصي، تعليق صوتي، موشن جرافيكس وخلفيات أرشيفية'
+                          : 'Rich narrative storytelling, voiceover, motion graphics & archive visuals',
                       },
                       {
                         id: 'social_explainer',
-                        name: 'تفسيري للسوشيال ميديا',
-                        desc: 'إيقاع سريع، نصوص حركية عملاقة، تأثيرات صوتية مكثفة',
+                        name: isAr ? 'تفسيري للسوشيال ميديا' : 'Social Media Explainer',
+                        desc: isAr
+                          ? 'إيقاع سريع، نصوص حركية عملاقة، تأثيرات صوتية مكثفة'
+                          : 'Fast-paced, bold kinetic typography, punchy visual hooks & SFX',
                       },
                       {
                         id: 'faceless-explainer',
-                        name: 'فيديو تعليمي بدون وجه',
-                        desc: 'شرح مبسّط خطوة بخطوة مع رسومات وتوضيحات تفاعلية',
+                        name: isAr ? 'فيديو تعليمي بدون وجه' : 'Faceless Educational',
+                        desc: isAr
+                          ? 'شرح مبسّط خطوة بخطوة مع رسومات وتوضيحات تفاعلية'
+                          : 'Step-by-step visual breakdowns with interactive diagrams & highlights',
                       },
                     ].map((pipe) => (
                       <div
@@ -836,12 +903,12 @@ Production Specifications:
                   {omRenderMutation.isPending || omJob?.status === 'processing' ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      جاري إنتاج ومعالجة الفيديو في الخلفية...
+                      {isAr ? 'جاري إنتاج ومعالجة الفيديو في الخلفية...' : 'Rendering Video in Background...'}
                     </>
                   ) : (
                     <>
                       <Clapperboard className="mr-2 h-5 w-5" />
-                      بدء الإنتاج الكامل بواسطة OpenMontage
+                      {isAr ? 'بدء الإنتاج الكامل بواسطة OpenMontage' : 'Start Full Production with OpenMontage'}
                     </>
                   )}
                 </Button>
@@ -855,7 +922,7 @@ Production Specifications:
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Terminal className="h-5 w-5 text-primary" />
-                      مؤشر تقدم الإنتاج المباشر (Live Pipeline Progress)
+                      {isAr ? 'مؤشر تقدم الإنتاج المباشر (Live Pipeline Progress)' : 'Live Pipeline Progress'}
                     </CardTitle>
                     <Badge
                       variant={
@@ -867,10 +934,16 @@ Production Specifications:
                       }
                     >
                       {omJob.status === 'completed'
-                        ? 'مكتمل'
+                        ? isAr
+                          ? 'مكتمل'
+                          : 'Completed'
                         : omJob.status === 'failed'
-                          ? 'فشل'
-                          : `${omJob.progress}% جاري التنفيذ`}
+                          ? isAr
+                            ? 'فشل'
+                            : 'Failed'
+                          : isAr
+                            ? `${omJob.progress}% جاري التنفيذ`
+                            : `${omJob.progress}% In Progress`}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -878,10 +951,10 @@ Production Specifications:
                   {/* Stages Pills */}
                   <div className="grid grid-cols-4 gap-2 text-center text-xs">
                     {[
-                      { step: 1, label: 'فحص وتجهيز الأدوات' },
-                      { step: 2, label: 'تخطيط القصة والسيناريو' },
-                      { step: 3, label: 'توليد الصوت والموسيقى' },
-                      { step: 4, label: 'المونتاج والتصدير النهائي' },
+                      { step: 1, label: isAr ? 'فحص وتجهيز الأدوات' : 'Tools Preflight' },
+                      { step: 2, label: isAr ? 'تخطيط القصة والسيناريو' : 'Story & Script Planning' },
+                      { step: 3, label: isAr ? 'توليد الصوت والموسيقى' : 'Audio & Voice Synthesis' },
+                      { step: 4, label: isAr ? 'المونتاج والتصدير النهائي' : 'Montage & Master Render' },
                     ].map((s) => {
                       const currentStep = getStageStep(omJob.stage);
                       const isDone = omJob.status === 'completed' || currentStep > s.step;
@@ -909,7 +982,7 @@ Production Specifications:
                   {/* Progress Bar */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{omJob.message || 'جاري المعالجة...'}</span>
+                      <span>{omJob.message || (isAr ? 'جاري المعالجة...' : 'Processing...')}</span>
                       <span className="font-semibold text-primary">{omJob.progress}%</span>
                     </div>
                     <Progress value={omJob.progress} className="h-3" />
@@ -934,15 +1007,18 @@ Production Specifications:
                     <div className="space-y-3 pt-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-semibold text-sm text-emerald-400 flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4" /> الفيديو جاهز للعرض والتحميل
+                          <CheckCircle2 className="h-4 w-4" />
+                          {isAr ? 'الفيديو جاهز للعرض والتحميل' : 'Video Deliverable Ready for Playback & Download'}
                         </span>
                         <div className="flex items-center gap-2">
                           <Button size="sm" variant="secondary" onClick={handleStartNewProject} className="gap-1.5 text-xs">
-                            <Sparkles className="h-3.5 w-3.5 text-primary" /> فيديو جديد
+                            <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            {isAr ? 'فيديو جديد' : 'New Project'}
                           </Button>
                           <a href={omJob.videoUrl} target="_blank" rel="noreferrer" download>
                             <Button size="sm" variant="outline" className="gap-2">
-                              <Download className="h-4 w-4" /> تحميل الفيديو
+                              <Download className="h-4 w-4" />
+                              {isAr ? 'تحميل الفيديو' : 'Download Video'}
                             </Button>
                           </a>
                         </div>
@@ -963,17 +1039,23 @@ Production Specifications:
           <aside className="space-y-5">
             <Card className="glass-card border-white/10 shadow-lg">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">إعدادات الإخراج والمونتاج</CardTitle>
-                <CardDescription>التحكم في الأبعاد والصوتيات ودقة الفيديو</CardDescription>
+                <CardTitle className="text-lg">
+                  {isAr ? 'إعدادات الإخراج والمونتاج' : 'Directing & Montage Settings'}
+                </CardTitle>
+                <CardDescription>
+                  {isAr ? 'التحكم في الأبعاد والصوتيات ودقة الفيديو' : 'Aspect ratio, voiceover engine, and resolution controls'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {/* Aspect Ratio */}
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">أبعاد الشاشة</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    {isAr ? 'أبعاد الشاشة' : 'Aspect Ratio'}
+                  </Label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { value: '16:9', label: '16:9 (عرضي)', icon: MonitorPlay },
-                      { value: '9:16', label: '9:16 (طولي)', icon: Smartphone },
+                      { value: '16:9', label: isAr ? '16:9 (عرضي)' : '16:9 Landscape', icon: MonitorPlay },
+                      { value: '9:16', label: isAr ? '9:16 (طولي)' : '9:16 Portrait', icon: Smartphone },
                     ].map(({ value, label, icon: Icon }) => (
                       <Button
                         key={value}
@@ -991,7 +1073,7 @@ Production Specifications:
                 {/* Resolution */}
                 <div className="space-y-2">
                   <Label htmlFor="om-resolution" className="text-xs uppercase tracking-wider text-muted-foreground">
-                    دقة الفيديو
+                    {isAr ? 'دقة الفيديو' : 'Video Resolution'}
                   </Label>
                   <select
                     id="om-resolution"
@@ -999,16 +1081,23 @@ Production Specifications:
                     onChange={(e) => setOmResolution(e.target.value)}
                     className="h-9 w-full rounded-md border border-white/15 bg-background/50 px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
-                    <option value="1080p">1080p (Full HD - الموصى به)</option>
-                    <option value="4k">4K (Ultra HD)</option>
-                    <option value="720p">720p (سريع للمعاينات)</option>
+                    <option value="1080p">
+                      {isAr ? '1080p (Full HD - الموصى به)' : '1080p (Full HD - Recommended)'}
+                    </option>
+                    <option value="4k">
+                      {isAr ? '4K (Ultra HD)' : '4K (Ultra HD)'}
+                    </option>
+                    <option value="720p">
+                      {isAr ? '720p (سريع للمعاينات)' : '720p (Fast Preview)'}
+                    </option>
                   </select>
                 </div>
 
                 {/* Voice Engine */}
                 <div className="space-y-2">
                   <Label htmlFor="om-voice" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Mic className="h-3.5 w-3.5 text-primary" /> محرك التعليق الصوتي
+                    <Mic className="h-3.5 w-3.5 text-primary" />
+                    {isAr ? 'محرك التعليق الصوتي' : 'Voiceover Engine'}
                   </Label>
                   <select
                     id="om-voice"
@@ -1016,16 +1105,22 @@ Production Specifications:
                     onChange={(e) => setOmVoice(e.target.value)}
                     className="h-9 w-full rounded-md border border-white/15 bg-background/50 px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
-                    <option value="piper-ar-male">Piper Neural (صوت عربي فصيح - محلي وفائق السرعة)</option>
-                    <option value="azure-neural">Azure Neural Speech (سحابي متقدم)</option>
-                    <option value="elevenlabs">ElevenLabs Studio (ذكاء اصطناعي فائق الواقعية)</option>
+                    <option value="piper-ar-male">
+                      {isAr ? 'Piper Neural (صوت عربي فصيح - محلي وفائق السرعة)' : 'Piper Neural (Fast & Local Audio Engine)'}
+                    </option>
+                    <option value="azure-neural">
+                      {isAr ? 'Azure Neural Speech (سحابي متقدم)' : 'Azure Neural Speech (Cloud HD)'}
+                    </option>
+                    <option value="elevenlabs">
+                      {isAr ? 'ElevenLabs Studio (ذكاء اصطناعي فائق الواقعية)' : 'ElevenLabs Studio (Hyper-Realistic AI)'}
+                    </option>
                   </select>
                 </div>
 
                 {/* Music Style */}
                 <div className="space-y-2">
                   <Label htmlFor="om-music" className="text-xs uppercase tracking-wider text-muted-foreground">
-                    الموسيقى التصويرية الخلفية
+                    {isAr ? 'الموسيقى التصويرية الخلفية' : 'Background Soundtrack'}
                   </Label>
                   <select
                     id="om-music"
@@ -1033,10 +1128,18 @@ Production Specifications:
                     onChange={(e) => setOmMusicStyle(e.target.value)}
                     className="h-9 w-full rounded-md border border-white/15 bg-background/50 px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
-                    <option value="cinematic-documentary">وثائقي سينمائي ملهم (Cinematic Ambient)</option>
-                    <option value="corporate-tech">تقني ورسمي موثوق (Corporate Tech)</option>
-                    <option value="dramatic-history">درامي هادئ وتاريخي (Dramatic)</option>
-                    <option value="none">بدون موسيقى خلفية (صوت التعليق فقط)</option>
+                    <option value="cinematic-documentary">
+                      {isAr ? 'وثائقي سينمائي ملهم (Cinematic Ambient)' : 'Cinematic Ambient (Documentary)'}
+                    </option>
+                    <option value="corporate-tech">
+                      {isAr ? 'تقني ورسمي موثوق (Corporate Tech)' : 'Corporate Tech & Modern'}
+                    </option>
+                    <option value="dramatic-history">
+                      {isAr ? 'درامي هادئ وتاريخي (Dramatic)' : 'Dramatic Heritage'}
+                    </option>
+                    <option value="none">
+                      {isAr ? 'بدون موسيقى خلفية (صوت التعليق فقط)' : 'No Background Music (Voice Only)'}
+                    </option>
                   </select>
                 </div>
               </CardContent>
@@ -1045,13 +1148,22 @@ Production Specifications:
             {/* Integration Architecture Card */}
             <Card className="border-white/10 bg-primary/5 p-4 text-xs space-y-2 text-muted-foreground">
               <p className="font-semibold text-foreground flex items-center gap-1.5">
-                <Layers className="h-4 w-4 text-primary" /> آلية الربط المتزامن
+                <Layers className="h-4 w-4 text-primary" />
+                {isAr ? 'آلية الربط المتزامن' : 'Synchronized Pipeline Architecture'}
               </p>
-              <p>
-                يقوم NestJS بإرسال المهمة إلى طابور BullMQ، حيث يستقبلها Worker Process ويشغل سكربت{' '}
-                <code className="text-primary font-mono text-[11px]">tools/video/runner_bridge.py</code> الخاص بمحرك
-                OpenMontage مع بث فوري للنسبة عبر WebSockets.
-              </p>
+              {isAr ? (
+                <p>
+                  يقوم NestJS بإرسال المهمة إلى طابور BullMQ، حيث يستقبلها Worker Process ويشغل سكربت{' '}
+                  <code className="text-primary font-mono text-[11px]">tools/video/runner_bridge.py</code> الخاص بمحرك
+                  OpenMontage مع بث فوري للنسبة عبر WebSockets.
+                </p>
+              ) : (
+                <p>
+                  NestJS dispatches rendering tasks to the BullMQ queue, where background workers execute{' '}
+                  <code className="text-primary font-mono text-[11px]">tools/video/runner_bridge.py</code> powered by
+                  OpenMontage with real-time WebSocket progress.
+                </p>
+              )}
             </Card>
           </aside>
         </div>
@@ -1063,7 +1175,7 @@ Production Specifications:
               <div className="space-y-2">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <Label htmlFor="video-prompt" className="text-lg font-semibold">
-                    وصف اللقطة السريعة (AI Prompt)
+                    {isAr ? 'وصف اللقطة السريعة (AI Prompt)' : 'Quick Clip Description (AI Prompt)'}
                   </Label>
                   <Button
                     variant="outline"
@@ -1073,12 +1185,22 @@ Production Specifications:
                     className="gap-1 text-xs"
                   >
                     {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    {isEnhancing ? 'جاري التحسين...' : 'تحسين البرومبت'}
+                    {isAr
+                      ? isEnhancing
+                        ? 'جاري التحسين...'
+                        : 'تحسين البرومبت'
+                      : isEnhancing
+                        ? 'Enhancing...'
+                        : 'Enhance Prompt'}
                   </Button>
                 </div>
                 <textarea
                   id="video-prompt"
-                  placeholder="لقطة سينمائية لمدينة مستقبلية عند الغروب، أضواء نيون تنعكس على الشوارع المبتلة..."
+                  placeholder={
+                    isAr
+                      ? 'لقطة سينمائية لمدينة مستقبلية عند الغروب، أضواء نيون تنعكس على الشوارع المبتلة...'
+                      : 'Cinematic establishing shot of a futuristic metropolis at sunset, neon reflections on wet asphalt...'
+                  }
                   className="min-h-36 w-full resize-y rounded-md border border-input bg-background/50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   value={quickPrompt}
                   onChange={(event) => setQuickPrompt(event.target.value)}
@@ -1097,15 +1219,25 @@ Production Specifications:
                 ) : (
                   <Sparkles className="mr-2 h-5 w-5" />
                 )}
-                {quickGenerateMutation.isPending ? 'جاري إرسال الطلب...' : 'توليد لقطة الفيديو (Runway/Replicate)'}
+                {quickGenerateMutation.isPending
+                  ? isAr
+                    ? 'جاري إرسال الطلب...'
+                    : 'Submitting Request...'
+                  : isAr
+                    ? 'توليد لقطة الفيديو (Runway/Replicate)'
+                    : 'Generate Quick Clip (Runway/Replicate)'}
               </Button>
             </Card>
           </div>
 
           <aside className="glass-card space-y-5 rounded-xl border border-white/10 p-5">
-            <h2 className="border-b border-border pb-2 text-lg font-semibold">إعدادات اللقطة</h2>
+            <h2 className="border-b border-border pb-2 text-lg font-semibold">
+              {isAr ? 'إعدادات اللقطة' : 'Shot Settings'}
+            </h2>
             <div className="space-y-3">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">أبعاد الشاشة</Label>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                {isAr ? 'أبعاد الشاشة' : 'Aspect Ratio'}
+              </Label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { value: '16:9', label: '16:9', icon: MonitorPlay },
@@ -1124,7 +1256,9 @@ Production Specifications:
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="video-style">النمط الفني</Label>
+              <Label htmlFor="video-style">
+                {isAr ? 'النمط الفني' : 'Art Style'}
+              </Label>
               <select
                 id="video-style"
                 value={artStyle}
@@ -1138,7 +1272,9 @@ Production Specifications:
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="camera-motion">حركة الكاميرا</Label>
+              <Label htmlFor="camera-motion">
+                {isAr ? 'حركة الكاميرا' : 'Camera Motion'}
+              </Label>
               <select
                 id="camera-motion"
                 value={cameraMotion}
@@ -1154,7 +1290,9 @@ Production Specifications:
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <Label htmlFor="duration">المدة</Label>
+                <Label htmlFor="duration">
+                  {isAr ? 'المدة' : 'Duration'}
+                </Label>
                 <span className="text-sm font-semibold text-primary">{quickDuration}s</span>
               </div>
               <input
@@ -1217,14 +1355,16 @@ Production Specifications:
                 <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
                   <Paperclip className="h-14 w-14 text-purple-400" />
                   <p className="font-medium text-foreground">{previewMedia.name}</p>
-                  <p className="text-xs">مستند نصي / ملف مرفق لإنتاج السكربت</p>
+                  <p className="text-xs">
+                    {isAr ? 'مستند نصي / ملف مرفق لإنتاج السكربت' : 'Text document / Attachment asset for script production'}
+                  </p>
                 </div>
               )}
             </div>
 
             <div className="mt-4 flex justify-end">
               <Button variant="default" size="sm" onClick={() => setPreviewMedia(null)}>
-                إغلاق المعاينة
+                {isAr ? 'إغلاق المعاينة' : 'Close Preview'}
               </Button>
             </div>
           </div>
