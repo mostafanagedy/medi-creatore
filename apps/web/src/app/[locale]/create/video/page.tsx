@@ -156,7 +156,8 @@ export default function CreateVideoPage() {
     socket.on('render:completed', (event: { jobId: string; projectId: string; result: any }) => {
       setOmJob((prev) => {
         if (!prev) return null;
-        const videoUrl = event.result?.videoUrl || event.result?.output_path || prev.videoUrl;
+        let rawUrl = event.result?.videoUrl || event.result?.output_path || prev.videoUrl;
+        const videoUrl = rawUrl ? (rawUrl.includes('?') ? `${rawUrl}&v=${Date.now()}` : `${rawUrl}?v=${Date.now()}`) : '';
         return {
           ...prev,
           status: 'completed',
@@ -167,7 +168,7 @@ export default function CreateVideoPage() {
           logs: [...prev.logs, `[COMPLETE] Video ready at ${videoUrl}`],
         };
       });
-      toast.success('تم إنتاج وتجهيز الفيديو بنجاح بواسطة محرك OpenMontage!');
+      toast.success('تم إنتاج وتجهيز الفيديو الجديد بنجاح!');
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     });
 
@@ -198,8 +199,9 @@ export default function CreateVideoPage() {
         const response = await apiClient.get(`/projects/${omJob?.projectId}/render/status`);
         const data = response.data?.data ?? response.data;
         if (data?.renderStatus === 'COMPLETED' || data?.projectStatus === 'COMPLETED') {
-          const videoUrl = data?.videoUrl || data?.previewUrl || data?.video?.fileUrl;
-          if (videoUrl) {
+          const rawUrl = data?.videoUrl || data?.previewUrl || data?.video?.fileUrl;
+          if (rawUrl) {
+            const videoUrl = rawUrl.includes('?') ? `${rawUrl}&v=${Date.now()}` : `${rawUrl}?v=${Date.now()}`;
             setOmJob((prev) => {
               if (!prev) return null;
               return {
@@ -281,6 +283,18 @@ export default function CreateVideoPage() {
 
   // OpenMontage Studio Render Mutation
   const omRenderMutation = useMutation({
+    onMutate: () => {
+      // Clear previous job state immediately so UI switches to pending/processing
+      setOmJob({
+        jobId: `init-${Date.now()}`,
+        projectId: '',
+        status: 'queued',
+        progress: 5,
+        stage: 'init',
+        message: 'جاري إنشاء المشروع وتجهيز خط الإنتاج المباشر...',
+        logs: ['[START] Initializing clean production run...'],
+      });
+    },
     mutationFn: async () => {
       // 1. Resolve organization ID safely
       let effectiveOrgId = organizationId;
@@ -297,13 +311,15 @@ export default function CreateVideoPage() {
         }
       }
 
-      // 2. Create or ensure project
+      // 2. Always create a new project record with a fresh timestamped name to guarantee a brand new video
+      const uniqueSuffix = Date.now().toString().slice(-6);
+      const projectTitle = omTitle.trim() || `مشروع فيديو - ${uniqueSuffix}`;
       let projectId = '';
       if (effectiveOrgId) {
         try {
           const projectRes = await apiClient.post('/projects', {
             organizationId: effectiveOrgId,
-            name: (omTitle.trim() || 'Untitled OpenMontage Video').slice(0, 120),
+            name: projectTitle.slice(0, 120),
             description: omPrompt.trim().slice(0, 4000),
             tags: ['openmontage', omPipeline],
           });
@@ -324,7 +340,7 @@ export default function CreateVideoPage() {
         aspectRatio: omAspectRatio,
         fps: 30,
         options: {
-          title: omTitle.trim() || 'Untitled OpenMontage Video',
+          title: projectTitle,
           prompt: omPrompt.trim(),
           voice: omVoice,
           musicStyle: omMusicStyle,
@@ -341,13 +357,13 @@ export default function CreateVideoPage() {
       setOmJob({
         jobId,
         projectId,
-        status: 'queued',
-        progress: 5,
+        status: 'processing',
+        progress: 10,
         stage: 'init',
-        message: 'تم إرسال مهمة الإنتاج إلى طابور المعالجة...',
+        message: 'تم إرسال مهمة الإنتاج إلى طابور المعالجة وبدء الرندر...',
         logs: [`[INIT] Job queued with ID ${jobId}`],
       });
-      toast.success('تم بدء مهمة إنتاج الفيديو بنجاح!');
+      toast.success('تم بدء مهمة إنتاج الفيديو الجديد بنجاح!');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message ?? error.message ?? 'فشل بدء عملية الإنتاج');
@@ -383,6 +399,17 @@ export default function CreateVideoPage() {
 
   const removeAttachment = (index: number) => {
     setOmAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleStartNewProject = () => {
+    setOmJob(null);
+    setOmTitle('');
+    setOmPrompt('');
+    setOmAttachments([]);
+    try {
+      localStorage.removeItem('om_active_job');
+    } catch {}
+    toast.info('تم تفريغ اللوحة وبدء مشروع فيديو جديد بنجاح');
   };
 
   const generateCinematicScriptFallback = (rawText: string) => {
@@ -536,8 +563,21 @@ Production Specifications:
           </p>
         </div>
 
-        {/* Engine Switcher */}
-        <div className="flex items-center rounded-xl border border-white/10 bg-background/60 p-1.5 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center gap-2">
+          {omJob && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleStartNewProject}
+              className="gap-1.5 text-xs border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              مشروع فيديو جديد
+            </Button>
+          )}
+
+          {/* Engine Switcher */}
+          <div className="flex items-center rounded-xl border border-white/10 bg-background/60 p-1.5 shadow-sm backdrop-blur">
           <Button
             size="sm"
             variant={engineMode === 'openmontage' ? 'default' : 'ghost'}
@@ -556,6 +596,7 @@ Production Specifications:
             <Sparkles className="h-4 w-4" />
             AI Quick Clip (لقطة سريعة)
           </Button>
+          </div>
         </div>
       </div>
 
@@ -846,15 +887,20 @@ Production Specifications:
                   {/* Ready Video Result Preview */}
                   {omJob.status === 'completed' && omJob.videoUrl && (
                     <div className="space-y-3 pt-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-semibold text-sm text-emerald-400 flex items-center gap-2">
                           <CheckCircle2 className="h-4 w-4" /> الفيديو جاهز للعرض والتحميل
                         </span>
-                        <a href={omJob.videoUrl} target="_blank" rel="noreferrer" download>
-                          <Button size="sm" variant="outline" className="gap-2">
-                            <Download className="h-4 w-4" /> تحميل الفيديو
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="secondary" onClick={handleStartNewProject} className="gap-1.5 text-xs">
+                            <Sparkles className="h-3.5 w-3.5 text-primary" /> فيديو جديد
                           </Button>
-                        </a>
+                          <a href={omJob.videoUrl} target="_blank" rel="noreferrer" download>
+                            <Button size="sm" variant="outline" className="gap-2">
+                              <Download className="h-4 w-4" /> تحميل الفيديو
+                            </Button>
+                          </a>
+                        </div>
                       </div>
                       <video
                         controls

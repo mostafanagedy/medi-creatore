@@ -205,10 +205,29 @@ Technical Production Notes:
   }
 
   async getVideoStatus(taskId: string): Promise<VideoGenerationStatusResponse> {
+    let videoUrl = 'http://localhost:3000/videos/sintel-trailer.mp4';
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const videosDir = path.resolve(__dirname, '../../../../web/public/videos');
+      if (fs.existsSync(videosDir)) {
+        const files = fs
+          .readdirSync(videosDir)
+          .filter((f: string) => f.startsWith('final_') && f.endsWith('.mp4'));
+        if (files.length > 0) {
+          files.sort();
+          const latest = files[files.length - 1];
+          videoUrl = `http://localhost:3000/videos/${latest}?task=${taskId}`;
+        }
+      }
+    } catch {
+      // fallback
+    }
+
     return {
       taskId,
       status: 'completed',
-      videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+      videoUrl,
       progress: 100,
     };
   }

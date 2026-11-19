@@ -95,10 +95,14 @@ export class ProjectsService {
     } else {
       await this.orgs.assertMember(userId, project.organizationId, MemberRole.EDITOR);
 
-      // Update project status to PROCESSING
+      // Update project status to PROCESSING and reset previous video records
       await this.prisma.project.update({
         where: { id },
         data: { status: ProjectStatus.PROCESSING },
+      });
+      await this.prisma.video.updateMany({
+        where: { projectId: id },
+        data: { status: VideoStatus.PROCESSING, fileUrl: null },
       });
     }
 
@@ -135,7 +139,7 @@ export class ProjectsService {
       where: { id, deletedAt: null },
       include: {
         videos: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { updatedAt: 'desc' },
           take: 1,
         },
       },
@@ -144,11 +148,16 @@ export class ProjectsService {
     if (!project) throw new NotFoundException('Project not found');
 
     const latestVideo = project.videos?.[0];
+    const isCompleted =
+      project.status === ProjectStatus.COMPLETED &&
+      latestVideo?.status === VideoStatus.COMPLETED &&
+      Boolean(latestVideo?.fileUrl);
+
     return {
       projectId: id,
       projectStatus: project.status,
-      renderStatus: latestVideo?.status ?? (project.status === ProjectStatus.COMPLETED ? 'COMPLETED' : 'PROCESSING'),
-      videoUrl: latestVideo?.fileUrl ?? (project.status === ProjectStatus.COMPLETED ? `/videos/${id}.mp4` : null),
+      renderStatus: isCompleted ? 'COMPLETED' : latestVideo?.status === VideoStatus.FAILED ? 'FAILED' : 'PROCESSING',
+      videoUrl: isCompleted ? latestVideo?.fileUrl : null,
       video: latestVideo,
     };
   }

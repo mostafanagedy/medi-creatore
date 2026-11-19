@@ -195,6 +195,13 @@ export class VideoRenderingProcessor extends WorkerHost {
         '--action', 'render',
       ];
 
+      if (job.data.options?.prompt) {
+        args.push('--prompt', String(job.data.options.prompt));
+      }
+      if (job.data.options?.aspectRatio) {
+        args.push('--aspect-ratio', String(job.data.options.aspectRatio));
+      }
+
       this.logger.log(`Spawning OpenMontage Runner: ${pythonBin} ${args.join(' ')}`);
 
       const proc = spawn(pythonBin, args, {
