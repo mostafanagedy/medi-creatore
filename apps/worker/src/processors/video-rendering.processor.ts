@@ -202,6 +202,21 @@ export class VideoRenderingProcessor extends WorkerHost {
         args.push('--aspect-ratio', String(job.data.options.aspectRatio));
       }
 
+      if (job.data.options?.attachments && Array.isArray(job.data.options.attachments) && job.data.options.attachments.length > 0) {
+        args.push('--attachments-json', JSON.stringify(job.data.options.attachments));
+
+        // Find primary video footage attachment if present
+        const videoAttachment = job.data.options.attachments.find(
+          (a: any) =>
+            a.type === 'video' ||
+            (a.path && /\.(mp4|mov|mkv|webm|avi)$/i.test(a.path)) ||
+            (a.name && /\.(mp4|mov|mkv|webm|avi)$/i.test(a.name)),
+        );
+        if (videoAttachment && videoAttachment.path) {
+          args.push('--footage', videoAttachment.path);
+        }
+      }
+
       this.logger.log(`Spawning OpenMontage Runner: ${pythonBin} ${args.join(' ')}`);
 
       const proc = spawn(pythonBin, args, {

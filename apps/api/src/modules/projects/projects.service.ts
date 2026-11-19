@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { MemberRole, Prisma, ProjectStatus } from '@prisma/client';
+import { MemberRole, Prisma, ProjectStatus, VideoStatus } from '@prisma/client';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -153,12 +153,19 @@ export class ProjectsService {
       latestVideo?.status === VideoStatus.COMPLETED &&
       Boolean(latestVideo?.fileUrl);
 
+    const serializedVideo = latestVideo
+      ? {
+          ...latestVideo,
+          fileSize: latestVideo.fileSize ? latestVideo.fileSize.toString() : null,
+        }
+      : null;
+
     return {
       projectId: id,
       projectStatus: project.status,
       renderStatus: isCompleted ? 'COMPLETED' : latestVideo?.status === VideoStatus.FAILED ? 'FAILED' : 'PROCESSING',
       videoUrl: isCompleted ? latestVideo?.fileUrl : null,
-      video: latestVideo,
+      video: serializedVideo,
     };
   }
 

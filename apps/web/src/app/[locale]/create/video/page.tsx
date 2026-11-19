@@ -95,7 +95,10 @@ export default function CreateVideoPage() {
   const [omResolution, setOmResolution] = useState('1080p');
   const [omVoice, setOmVoice] = useState('piper-ar-male');
   const [omMusicStyle, setOmMusicStyle] = useState('cinematic-documentary');
-  const [omAttachments, setOmAttachments] = useState<Array<{ name: string; size: string; type: 'image' | 'video' | 'audio' | 'file'; url?: string }>>([]);
+  const [omAttachments, setOmAttachments] = useState<
+    Array<{ name: string; size: string; type: 'image' | 'video' | 'audio' | 'file'; path?: string; url?: string }>
+  >([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [previewMedia, setPreviewMedia] = useState<{ name: string; type: 'image' | 'video' | 'audio' | 'file'; url: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -344,6 +347,13 @@ export default function CreateVideoPage() {
           prompt: omPrompt.trim(),
           voice: omVoice,
           musicStyle: omMusicStyle,
+          attachments: omAttachments.map((a) => ({
+            name: a.name,
+            type: a.type,
+            size: a.size,
+            path: a.path,
+            url: a.url,
+          })),
         },
       });
 
@@ -370,31 +380,54 @@ export default function CreateVideoPage() {
     },
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const newAttachments: Array<{ name: string; size: string; type: 'image' | 'video' | 'audio' | 'file'; url?: string }> = [];
+    setIsUploadingAttachment(true);
+    const toastId = toast.loading(`جاري رفع ومعالجة ${files.length} من المرفقات لسيرفر المونتاج...`);
 
-    Array.from(files).forEach((file) => {
-      let type: 'image' | 'video' | 'audio' | 'file' = 'file';
-      if (file.type.startsWith('image/')) type = 'image';
-      else if (file.type.startsWith('video/')) type = 'video';
-      else if (file.type.startsWith('audio/')) type = 'audio';
+    const uploadedList: Array<{ name: string; size: string; type: 'image' | 'video' | 'audio' | 'file'; path?: string; url?: string }> = [];
 
-      const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-      const fakeUrl = URL.createObjectURL(file);
+    for (const file of Array.from(files)) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
 
-      newAttachments.push({
-        name: file.name,
-        size: `${sizeInMB} MB`,
-        type,
-        url: fakeUrl,
-      });
-    });
+        const res = await apiClient.post('/projects/upload-attachment', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
 
-    setOmAttachments((prev) => [...prev, ...newAttachments]);
-    toast.success(`تم إرفاق ${newAttachments.length} ملف بنجاح للمونتاج`);
+        const data = res.data?.data ?? res.data;
+        uploadedList.push({
+          name: data.name || file.name,
+          size: data.size || `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+          type: data.type || (file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'file'),
+          path: data.path,
+          url: data.url || URL.createObjectURL(file),
+        });
+      } catch (err: any) {
+        console.error('Failed to upload attachment:', err);
+        // Fallback to local URL if upload fails so user can still see it
+        const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+        uploadedList.push({
+          name: file.name,
+          size: `${sizeInMB} MB`,
+          type: file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'file',
+          url: URL.createObjectURL(file),
+        });
+      }
+    }
+
+    setOmAttachments((prev) => [...prev, ...uploadedList]);
+    setIsUploadingAttachment(false);
+    toast.dismiss(toastId);
+    toast.success(`تم حفظ وربط ${uploadedList.length} ملف بنجاح في خط الإنتاج!`);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const removeAttachment = (index: number) => {
@@ -681,11 +714,16 @@ Production Specifications:
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={isUploadingAttachment}
                       onClick={() => fileInputRef.current?.click()}
                       className="gap-2 border-primary/30 text-xs text-primary hover:bg-primary/10"
                     >
-                      <UploadCloud className="h-4 w-4" />
-                      رفع ملحقات
+                      {isUploadingAttachment ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      ) : (
+                        <UploadCloud className="h-4 w-4" />
+                      )}
+                      {isUploadingAttachment ? 'جاري الرفع...' : 'رفع ملحقات'}
                     </Button>
                   </div>
 
@@ -703,7 +741,14 @@ Production Specifications:
                             {file.type === 'file' && <Paperclip className="h-4 w-4 shrink-0 text-purple-400" />}
                             <div className="truncate">
                               <p className="truncate font-medium">{file.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{file.size}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground">{file.size}</span>
+                                {file.path && (
+                                  <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 px-1 rounded">
+                                    جاهز للمونتاج
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
